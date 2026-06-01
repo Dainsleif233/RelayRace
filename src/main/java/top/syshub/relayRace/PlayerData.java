@@ -89,6 +89,11 @@ public class PlayerData {
             player.getFreezeTicks(),
             player.isGlowing()
         );
+        reset(player);
+        return data;
+    }
+
+    public static void reset(Player player) {
         player.getInventory().clear();
         player.getEnderChest().clear();
         player.getActivePotionEffects().forEach(e -> player.removePotionEffect(e.getType()));
@@ -103,7 +108,6 @@ public class PlayerData {
         player.setPortalCooldown(0);
         player.setFreezeTicks(0);
         player.setGlowing(false);
-        return data;
     }
 
     public void apply(Player player) {

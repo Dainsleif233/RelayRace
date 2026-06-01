@@ -10,10 +10,10 @@ import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
-import org.bukkit.World;
 import org.bukkit.boss.BarColor;
 import org.bukkit.boss.BarStyle;
 import org.bukkit.boss.BossBar;
+import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.Player;
 import org.bukkit.scoreboard.Scoreboard;
 import org.bukkit.scoreboard.Team;
@@ -47,6 +47,7 @@ public class GameManager {
 
     private long gameStartTime;
     private boolean debug;
+    private boolean loop;
 
     public GameManager(RelayRace plugin, LobbyManager lobbyManager) {
         this.plugin = plugin;
@@ -59,10 +60,12 @@ public class GameManager {
     public void loadConfig() {
         plugin.getConfig().addDefault("time", 300);
         plugin.getConfig().addDefault("debug", false);
+        plugin.getConfig().addDefault("loop", true);
         plugin.getConfig().options().copyDefaults(true);
-        plugin.saveConfig();
+        saveConfigAsync();
         turnDuration = plugin.getConfig().getInt("time") * 20;
         debug = plugin.getConfig().getBoolean("debug");
+        loop = plugin.getConfig().getBoolean("loop");
     }
 
     public int getPlaytimeSeconds() {
@@ -75,7 +78,7 @@ public class GameManager {
             remainingTicks = turnDuration;
         }
         plugin.getConfig().set("time", seconds);
-        plugin.saveConfig();
+        saveConfigAsync();
     }
 
     // --- Queries ---
@@ -111,7 +114,21 @@ public class GameManager {
     public void setDebug(boolean debug) {
         this.debug = debug;
         plugin.getConfig().set("debug", debug);
-        plugin.saveConfig();
+        saveConfigAsync();
+    }
+
+    public boolean isLoop() {
+        return loop;
+    }
+
+    public void setLoop(boolean loop) {
+        this.loop = loop;
+        plugin.getConfig().set("loop", loop);
+        saveConfigAsync();
+    }
+
+    private void saveConfigAsync() {
+        Bukkit.getAsyncScheduler().runNow(plugin, task -> plugin.saveConfig());
     }
 
     // --- Teams ---
@@ -191,7 +208,6 @@ public class GameManager {
     }
 
     public void removeFromWaiting(Player player) {
-        waitingPlayers.remove(player);
         removeFromAllGroups(player);
         if (sorted) {
             updateWaitingPrefixes();
@@ -269,6 +285,15 @@ public class GameManager {
         activePlayer.teleport(worldSpawn);
         activePlayer.setRespawnLocation(worldSpawn, true);
 
+        // Reset to initial state
+        PlayerData.reset(activePlayer);
+        activePlayer.setHasSeenWinScreen(true);
+        double maxHealth = activePlayer.getAttribute(Attribute.MAX_HEALTH) != null
+            ? activePlayer.getAttribute(Attribute.MAX_HEALTH).getBaseValue() : 20.0;
+        activePlayer.setHealth(maxHealth);
+        activePlayer.setFoodLevel(20);
+        activePlayer.setSaturation(5);
+
         Component greenName = Component.text(activePlayer.getName(), NamedTextColor.GREEN);
         activePlayer.playerListName(greenName);
         activePlayer.displayName(greenName);
@@ -303,12 +328,26 @@ public class GameManager {
         // Capture current player state
         PlayerData snapshot = PlayerData.capture(activePlayer);
 
-        // Move old active to spectator
-        activePlayer.setGameMode(GameMode.SPECTATOR);
-        activePlayer.playerListName(null);
-        activePlayer.displayName(null);
-        greenTeam.removePlayer(activePlayer);
-        spectators.add(activePlayer);
+        // Move old active to end of waiting or spectator
+        if (loop) {
+            activePlayer.setGameMode(GameMode.ADVENTURE);
+            activePlayer.setFallDistance(0);
+            lobbyManager.teleportToLobby(activePlayer);
+            waitingPlayers.add(activePlayer);
+            assignTeam(activePlayer, yellowTeam);
+            if (sorted) {
+                int i = waitingPlayers.size();
+                Component prefix = Component.text("[" + i + "] " + activePlayer.getName(), NamedTextColor.YELLOW);
+                activePlayer.playerListName(prefix);
+                activePlayer.displayName(prefix);
+            }
+        } else {
+            activePlayer.setGameMode(GameMode.SPECTATOR);
+            activePlayer.playerListName(null);
+            activePlayer.displayName(null);
+            greenTeam.removePlayer(activePlayer);
+            spectators.add(activePlayer);
+        }
 
         // Check if there's a next player
         if (waitingPlayers.isEmpty()) {
@@ -324,6 +363,7 @@ public class GameManager {
         // Apply snapshot
         snapshot.apply(next);
         next.setGameMode(GameMode.SURVIVAL);
+        next.setHasSeenWinScreen(true);
         assignTeam(next, greenTeam);
         Component greenName = Component.text(next.getName(), NamedTextColor.GREEN);
         next.playerListName(greenName);
@@ -348,7 +388,7 @@ public class GameManager {
         Location loc = activePlayer != null ? activePlayer.getLocation() : null;
 
         // Move waiting players to spectator
-        for (Player p : List.copyOf(waitingPlayers)) {
+        for (Player p : waitingPlayers) {
             p.setGameMode(GameMode.SPECTATOR);
             p.playerListName(null);
             p.displayName(null);
@@ -435,20 +475,6 @@ public class GameManager {
             updateBossBar();
         }
 
-        // Detect if active player stepped into an End portal block (spawned on them)
-        if (activePlayer != null
-            && activePlayer.getWorld().getEnvironment() == World.Environment.THE_END) {
-            Location loc = activePlayer.getLocation();
-            if (loc.getBlock().getType() == Material.END_PORTAL
-                || loc.clone().add(0, 1, 0).getBlock().getType() == Material.END_PORTAL) {
-                if (debug) {
-                    plugin.getLogger().warning("[DEBUG] Tick detected player in End portal: " + activePlayer.getName());
-                }
-                winGame(activePlayer, loc);
-                return;
-            }
-        }
-
         if (remainingTicks <= 0) {
             switchToNextPlayer();
         }
@@ -465,6 +491,7 @@ public class GameManager {
                 activePlayer = waitingPlayers.removeFirst();
                 snapshot.apply(activePlayer);
                 activePlayer.setGameMode(GameMode.SURVIVAL);
+                activePlayer.setHasSeenWinScreen(true);
                 assignTeam(activePlayer, greenTeam);
                 Component greenName = Component.text(activePlayer.getName(), NamedTextColor.GREEN);
                 activePlayer.playerListName(greenName);

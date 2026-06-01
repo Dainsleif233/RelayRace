@@ -53,6 +53,10 @@ public final class CommandHandler {
                 .executes(ctx -> debugGet(ctx, gameManager))
                 .then(Commands.argument("enable", BoolArgumentType.bool())
                     .executes(ctx -> debugSet(ctx, gameManager))))
+            .then(Commands.literal("loop")
+                .executes(ctx -> loopGet(ctx, gameManager))
+                .then(Commands.argument("enable", BoolArgumentType.bool())
+                    .executes(ctx -> loopSet(ctx, gameManager))))
             .build();
     }
 
@@ -134,9 +138,9 @@ public final class CommandHandler {
             return Command.SINGLE_SUCCESS;
         }
         if (!gm.isSorted()) {
+            gm.sortWaiting();
             ctx.getSource().getSender().sendMessage(
-                Component.text("Waiting players must be sorted first. Use /rr sort.", NamedTextColor.RED));
-            return Command.SINGLE_SUCCESS;
+                Component.text("Auto-sorted waiting players.", NamedTextColor.YELLOW));
         }
         if (gm.startGame()) {
             ctx.getSource().getSender().sendMessage(
@@ -146,7 +150,7 @@ public final class CommandHandler {
                 Component.text("Game is already running.", NamedTextColor.RED));
         } else {
             ctx.getSource().getSender().sendMessage(
-                Component.text("Failed to start. Add players with /rr join and sort with /rr sort.", NamedTextColor.RED));
+                Component.text("Failed to start. Add players with /rr join first.", NamedTextColor.RED));
         }
         return Command.SINGLE_SUCCESS;
     }
@@ -186,6 +190,20 @@ public final class CommandHandler {
         gm.setDebug(enabled);
         ctx.getSource().getSender().sendMessage(
             Component.text("Debug mode: " + enabled, NamedTextColor.GREEN));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int loopGet(CommandContext<CommandSourceStack> ctx, GameManager gm) {
+        ctx.getSource().getSender().sendMessage(
+            Component.text("Loop mode: " + gm.isLoop(), NamedTextColor.GREEN));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int loopSet(CommandContext<CommandSourceStack> ctx, GameManager gm) {
+        boolean enabled = ctx.getArgument("enable", Boolean.class);
+        gm.setLoop(enabled);
+        ctx.getSource().getSender().sendMessage(
+            Component.text("Loop mode: " + enabled, NamedTextColor.GREEN));
         return Command.SINGLE_SUCCESS;
     }
 }

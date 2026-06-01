@@ -19,6 +19,7 @@ dependencies {
 
 tasks {
     processResources {
+        from(rootProject.file("LICENSE"))
         val props = mapOf("version" to version)
         filesMatching("plugin.yml") {
             expand(props)

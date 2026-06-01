@@ -51,5 +51,6 @@ public class LobbyManager {
         Location spawn = lobbyWorld.getSpawnLocation();
         player.setRespawnLocation(spawn, true);
         player.teleport(spawn);
+        player.setFallDistance(0);
     }
 }
