@@ -1,0 +1,16 @@
+# OS Shit
+.DS_Store
+
+# Gradle
+.gradle
+build
+run
+
+# IDE
+out/
+.idea
+*.iml
+.idea_modules/
+
+# Logs
+hs_err_pid*

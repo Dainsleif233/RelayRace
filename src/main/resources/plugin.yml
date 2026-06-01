@@ -1,0 +1,9 @@
+name: RelayRace
+description: Survive in relay until you clear the game.
+version: '${version}'
+
+main: top.syshub.relayRace.RelayRace
+api-version: '26.1.2'
+load: POSTWORLD
+
+authors: [ Dainsleif ]
