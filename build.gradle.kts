@@ -2,6 +2,12 @@ plugins {
     id("java-library")
 }
 
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
+}
+
 repositories {
     maven("https://mirrors.cqu.edu.cn/maven/")
     maven("https://mirrors.cqu.edu.cn/maven/papermc/")

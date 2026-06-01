@@ -2,15 +2,22 @@
 .DS_Store
 
 # Gradle
-.gradle
-build
+.gradle/
+build/
 run
+gradlew
+gradle/wrapper/gradle-wrapper.jar
 
 # IDE
 out/
-.idea
+.idea/
 *.iml
 .idea_modules/
+
+# Agent
+prompt/
+.claude/
+CLAUDE.md
 
 # Logs
 hs_err_pid*
