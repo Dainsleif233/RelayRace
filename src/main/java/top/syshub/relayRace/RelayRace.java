@@ -5,17 +5,16 @@ import org.bukkit.plugin.java.JavaPlugin;
 public final class RelayRace extends JavaPlugin {
 
     private GameManager gameManager;
-    private LobbyManager lobbyManager;
 
     @Override
     public void onEnable() {
-        lobbyManager = new LobbyManager(this);
+        LobbyManager lobbyManager = new LobbyManager();
         lobbyManager.createLobbyWorld();
 
         gameManager = new GameManager(this, lobbyManager);
         gameManager.loadConfig();
 
-        getServer().getPluginManager().registerEvents(new EventListener(this, gameManager), this);
+        getServer().getPluginManager().registerEvents(new EventListener(gameManager), this);
         CommandHandler.register(this, gameManager);
 
         getLogger().info("RelayRace enabled");
@@ -27,13 +26,5 @@ public final class RelayRace extends JavaPlugin {
             gameManager.disable();
         }
         getLogger().info("RelayRace disabled");
-    }
-
-    public GameManager getGameManager() {
-        return gameManager;
-    }
-
-    public LobbyManager getLobbyManager() {
-        return lobbyManager;
     }
 }

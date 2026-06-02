@@ -7,18 +7,15 @@ import org.bukkit.World;
 import org.bukkit.WorldCreator;
 import org.bukkit.WorldType;
 import org.bukkit.entity.Player;
-import org.bukkit.plugin.java.JavaPlugin;
 
 import java.lang.reflect.Field;
 
 public class LobbyManager {
 
-    private final JavaPlugin plugin;
     private World lobbyWorld;
     private final NamespacedKey LOBBY_KEY = new NamespacedKey("relayrace", "lobby");
 
-    public LobbyManager(JavaPlugin plugin) {
-        this.plugin = plugin;
+    public LobbyManager() {
     }
 
     public void createLobbyWorld() {
@@ -39,12 +36,11 @@ public class LobbyManager {
         creator.type(WorldType.FLAT);
         creator.generatorSettings("{\"layers\":[{\"height\":1,\"block\":\"minecraft:bedrock\"},{\"height\":127,\"block\":\"minecraft:dirt\"},{\"height\":1,\"block\":\"minecraft:grass_block\"}]}");
         lobbyWorld = creator.createWorld();
-        int topY = lobbyWorld.getHighestBlockYAt(0, 0);
-        lobbyWorld.setSpawnLocation(0, topY + 1, 0);
-    }
-
-    public World getLobbyWorld() {
-        return lobbyWorld;
+        int topY;
+        if (lobbyWorld != null) {
+            topY = lobbyWorld.getHighestBlockYAt(0, 0);
+            lobbyWorld.setSpawnLocation(0, topY + 1, 0);
+        }
     }
 
     public void teleportToLobby(Player player) {

@@ -11,17 +11,15 @@ import org.bukkit.event.player.PlayerTeleportEvent;
 
 public class EventListener implements Listener {
 
-    private final RelayRace plugin;
     private final GameManager gameManager;
 
-    public EventListener(RelayRace plugin, GameManager gameManager) {
-        this.plugin = plugin;
+    public EventListener(GameManager gameManager) {
         this.gameManager = gameManager;
     }
 
     @EventHandler(priority = EventPriority.LOW)
     public void onPlayerJoin(PlayerJoinEvent event) {
-        gameManager.addSpectator(event.getPlayer());
+        gameManager.handlePlayerJoin(event.getPlayer());
     }
 
     @EventHandler(priority = EventPriority.MONITOR)

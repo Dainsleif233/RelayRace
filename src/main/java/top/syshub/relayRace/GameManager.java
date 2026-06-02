@@ -3,6 +3,7 @@ package top.syshub.relayRace;
 import io.papermc.paper.threadedregions.scheduler.ScheduledTask;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.title.Title;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -21,9 +22,8 @@ import org.bukkit.scoreboard.Team;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Set;
+import java.util.Objects;
 
 public class GameManager {
 
@@ -36,8 +36,6 @@ public class GameManager {
 
     private Player activePlayer;
     private final List<Player> waitingPlayers = new ArrayList<>();
-    private final Set<Player> spectators = new LinkedHashSet<>();
-    private boolean sorted;
 
     private BossBar bossBar;
     private ScheduledTask timerTask;
@@ -95,16 +93,9 @@ public class GameManager {
         return waitingPlayers.contains(player);
     }
 
-    public boolean isSpectator(Player player) {
-        return spectators.contains(player);
-    }
-
-    public boolean isInGame(Player player) {
-        return isActivePlayer(player) || isWaiting(player) || isSpectator(player);
-    }
-
-    public boolean isSorted() {
-        return sorted;
+    /** Player is either active or in the waiting queue. */
+    public boolean isISpec(Player player) {
+        return !isActivePlayer(player) && !isWaiting(player);
     }
 
     public boolean isDebug() {
@@ -156,6 +147,37 @@ public class GameManager {
         team.addPlayer(player);
     }
 
+    // --- Display ---
+
+    /** Active player: green bold. */
+    private void applyActiveDisplay(Player player) {
+        Component name = Component.text(player.getName(), NamedTextColor.GREEN, TextDecoration.BOLD);
+        player.playerListName(name);
+        player.displayName(name);
+    }
+
+    /** Waiting players: yellow [N] prefix, first player bold. */
+    private void updateWaitingPrefixes() {
+        for (int i = 0; i < waitingPlayers.size(); i++) {
+            Player p = waitingPlayers.get(i);
+            if (i == 0) {
+                Component name = Component.text("[1] " + p.getName(), NamedTextColor.YELLOW, TextDecoration.BOLD);
+                p.playerListName(name);
+                p.displayName(name);
+            } else {
+                Component name = Component.text("[" + (i + 1) + "] " + p.getName(), NamedTextColor.YELLOW);
+                p.playerListName(name);
+                p.displayName(name);
+            }
+        }
+    }
+
+    /** Clear display name overrides (returns to default). */
+    private void clearPlayerDisplay(Player player) {
+        player.playerListName(null);
+        player.displayName(null);
+    }
+
     // --- Boss Bar ---
 
     private void createBossBar() {
@@ -168,7 +190,7 @@ public class GameManager {
         if (bossBar == null) return;
         bossBar.setTitle(formattedTimeString());
         float progress = turnDuration > 0 ? (float) remainingTicks / turnDuration : 0;
-        bossBar.setProgress(Math.max(0, Math.min(1, progress)));
+        bossBar.setProgress(Math.clamp(progress, 0, 1));
         if (progress < 0.25) {
             bossBar.setColor(BarColor.RED);
         } else if (progress < 0.5) {
@@ -199,44 +221,62 @@ public class GameManager {
 
     // --- Group management ---
 
+    /**
+     * Handle a player joining the server.
+     * Before game: spawn in lobby, unassigned, don't change gamemode.
+     * During game: spawn in lobby, unassigned, set to spectator.
+     */
+    public void handlePlayerJoin(Player player) {
+        removeFromAllGroups(player);
+        lobbyManager.teleportToLobby(player);
+        if (isRunning()) {
+            player.setGameMode(GameMode.SPECTATOR);
+        }
+    }
+
+    /**
+     * Add a player to the waiting queue.
+     * Before game: just mark as waiting. Appended at end with correct index.
+     * During game: mark as waiting, teleport to lobby, adventure mode. Appended at end.
+     */
     public void addToWaiting(Player player) {
         removeFromAllGroups(player);
         waitingPlayers.add(player);
         assignTeam(player, yellowTeam);
         addPlayerToBossBar(player);
-        sorted = false;
-    }
 
-    public void removeFromWaiting(Player player) {
-        removeFromAllGroups(player);
-        if (sorted) {
-            updateWaitingPrefixes();
-        }
-    }
-
-    public void addSpectator(Player player) {
-        removeFromAllGroups(player);
-        addSpectatorInternal(player);
-        lobbyManager.teleportToLobby(player);
         if (isRunning()) {
-            player.setGameMode(GameMode.SPECTATOR);
-        } else {
+            lobbyManager.teleportToLobby(player);
             player.setGameMode(GameMode.ADVENTURE);
         }
-        addPlayerToBossBar(player);
+
+        // Always update display (yellow, or yellow + [N] if sorted)
+        updateWaitingPrefixes();
     }
 
-    private void addSpectatorInternal(Player player) {
-        spectators.add(player);
-        greenTeam.removePlayer(player);
+    /**
+     * Remove a player from the waiting queue.
+     * Before game: just remove the waiting mark.
+     * During game: leave the player at their location, set to spectator mode.
+     */
+    public void removeFromWaiting(Player player) {
+        waitingPlayers.remove(player);
         yellowTeam.removePlayer(player);
+        clearPlayerDisplay(player);
+
+        if (isRunning()) {
+            player.setGameMode(GameMode.SPECTATOR);
+        }
+
+        updateWaitingPrefixes();
     }
 
+    /** Remove player from all tracked groups. */
     private void removeFromAllGroups(Player player) {
         waitingPlayers.remove(player);
-        spectators.remove(player);
         greenTeam.removePlayer(player);
         yellowTeam.removePlayer(player);
+        clearPlayerDisplay(player);
         if (activePlayer != null && activePlayer.equals(player)) {
             activePlayer = null;
         }
@@ -246,17 +286,7 @@ public class GameManager {
 
     public void sortWaiting() {
         Collections.shuffle(waitingPlayers);
-        sorted = true;
         updateWaitingPrefixes();
-    }
-
-    private void updateWaitingPrefixes() {
-        for (int i = 0; i < waitingPlayers.size(); i++) {
-            Player p = waitingPlayers.get(i);
-            Component prefix = Component.text("[" + (i + 1) + "] " + p.getName(), NamedTextColor.YELLOW);
-            p.playerListName(prefix);
-            p.displayName(prefix);
-        }
     }
 
     // --- Game lifecycle ---
@@ -266,9 +296,6 @@ public class GameManager {
             return false;
         }
         if (waitingPlayers.isEmpty()) {
-            return false;
-        }
-        if (!sorted) {
             return false;
         }
 
@@ -289,14 +316,12 @@ public class GameManager {
         PlayerData.reset(activePlayer);
         activePlayer.setHasSeenWinScreen(true);
         double maxHealth = activePlayer.getAttribute(Attribute.MAX_HEALTH) != null
-            ? activePlayer.getAttribute(Attribute.MAX_HEALTH).getBaseValue() : 20.0;
+            ? Objects.requireNonNull(activePlayer.getAttribute(Attribute.MAX_HEALTH)).getBaseValue() : 20.0;
         activePlayer.setHealth(maxHealth);
         activePlayer.setFoodLevel(20);
         activePlayer.setSaturation(5);
 
-        Component greenName = Component.text(activePlayer.getName(), NamedTextColor.GREEN);
-        activePlayer.playerListName(greenName);
-        activePlayer.displayName(greenName);
+        applyActiveDisplay(activePlayer);
 
         // Waiting players stay in lobby, adventure mode
         for (Player p : waitingPlayers) {
@@ -305,9 +330,11 @@ public class GameManager {
         }
         updateWaitingPrefixes();
 
-        // Spectators -> spectator mode
-        for (Player p : spectators) {
-            p.setGameMode(GameMode.SPECTATOR);
+        // All other online players -> spectator mode
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            if (isISpec(p)) {
+                p.setGameMode(GameMode.SPECTATOR);
+            }
         }
 
         // Boss bar
@@ -328,26 +355,20 @@ public class GameManager {
         // Capture current player state
         PlayerData snapshot = PlayerData.capture(activePlayer);
 
-        // Move old active to end of waiting or spectator
+        // Move old active to end of waiting (loop) or unassign (no loop)
         if (loop) {
             activePlayer.setGameMode(GameMode.ADVENTURE);
             activePlayer.setFallDistance(0);
             lobbyManager.teleportToLobby(activePlayer);
             waitingPlayers.add(activePlayer);
             assignTeam(activePlayer, yellowTeam);
-            if (sorted) {
-                int i = waitingPlayers.size();
-                Component prefix = Component.text("[" + i + "] " + activePlayer.getName(), NamedTextColor.YELLOW);
-                activePlayer.playerListName(prefix);
-                activePlayer.displayName(prefix);
-            }
         } else {
             activePlayer.setGameMode(GameMode.SPECTATOR);
-            activePlayer.playerListName(null);
-            activePlayer.displayName(null);
+            clearPlayerDisplay(activePlayer);
             greenTeam.removePlayer(activePlayer);
-            spectators.add(activePlayer);
         }
+
+        updateWaitingPrefixes();
 
         // Check if there's a next player
         if (waitingPlayers.isEmpty()) {
@@ -365,9 +386,7 @@ public class GameManager {
         next.setGameMode(GameMode.SURVIVAL);
         next.setHasSeenWinScreen(true);
         assignTeam(next, greenTeam);
-        Component greenName = Component.text(next.getName(), NamedTextColor.GREEN);
-        next.playerListName(greenName);
-        next.displayName(greenName);
+        applyActiveDisplay(next);
 
         updateWaitingPrefixes();
         remainingTicks = turnDuration;
@@ -387,19 +406,17 @@ public class GameManager {
 
         Location loc = activePlayer != null ? activePlayer.getLocation() : null;
 
-        // Move waiting players to spectator
+        // Clear waiting players — become unassigned
         for (Player p : waitingPlayers) {
             p.setGameMode(GameMode.SPECTATOR);
-            p.playerListName(null);
-            p.displayName(null);
+            clearPlayerDisplay(p);
             yellowTeam.removePlayer(p);
-            spectators.add(p);
         }
         waitingPlayers.clear();
 
-        // Teleport all spectators to the active player
+        // Teleport all online players to the active player's location
         if (loc != null) {
-            for (Player p : spectators) {
+            for (Player p : Bukkit.getOnlinePlayers()) {
                 p.teleport(loc);
             }
         }
@@ -431,7 +448,6 @@ public class GameManager {
             bossBar = null;
         }
 
-        sorted = false;
     }
 
     public void winGame(Player player, Location portalLoc) {
@@ -468,6 +484,7 @@ public class GameManager {
 
     private void tick() {
         if (gameState != GameState.RUNNING) return;
+        if (Bukkit.getServerTickManager().isFrozen()) return;
 
         remainingTicks--;
 
@@ -485,6 +502,7 @@ public class GameManager {
     public void removePlayer(Player player) {
         removePlayerFromBossBar(player);
         if (isActivePlayer(player)) {
+            // Active player disconnected — same as /rr next logic
             PlayerData snapshot = PlayerData.capture(player);
             activePlayer = null;
             if (!waitingPlayers.isEmpty()) {
@@ -493,9 +511,7 @@ public class GameManager {
                 activePlayer.setGameMode(GameMode.SURVIVAL);
                 activePlayer.setHasSeenWinScreen(true);
                 assignTeam(activePlayer, greenTeam);
-                Component greenName = Component.text(activePlayer.getName(), NamedTextColor.GREEN);
-                activePlayer.playerListName(greenName);
-                activePlayer.displayName(greenName);
+                applyActiveDisplay(activePlayer);
                 updateWaitingPrefixes();
                 remainingTicks = turnDuration;
                 updateBossBar();
@@ -504,12 +520,9 @@ public class GameManager {
             }
         } else if (isWaiting(player)) {
             waitingPlayers.remove(player);
-            if (sorted) {
-                updateWaitingPrefixes();
-            }
-        } else if (isSpectator(player)) {
-            spectators.remove(player);
+            updateWaitingPrefixes();
         }
+        // Unassigned players: nothing to clean up
         greenTeam.removePlayer(player);
         yellowTeam.removePlayer(player);
     }

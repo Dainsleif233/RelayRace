@@ -23,9 +23,7 @@ public final class CommandHandler {
     private CommandHandler() {}
 
     public static void register(RelayRace plugin, GameManager gameManager) {
-        plugin.getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event -> {
-            event.registrar().register(buildCommandTree(gameManager), "RelayRace command", List.of("rr"));
-        });
+        plugin.getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event -> event.registrar().register(buildCommandTree(gameManager), "RelayRace command", List.of("rr")));
     }
 
     private static LiteralCommandNode<CommandSourceStack> buildCommandTree(GameManager gameManager) {
@@ -99,7 +97,7 @@ public final class CommandHandler {
         }
         int count = 0;
         for (Player p : targets) {
-            if (!gm.isInGame(p) || gm.isSpectator(p)) {
+            if (gm.isISpec(p)) {
                 gm.addToWaiting(p);
                 count++;
             }
@@ -136,11 +134,6 @@ public final class CommandHandler {
             ctx.getSource().getSender().sendMessage(
                 Component.text("Game is already running.", NamedTextColor.RED));
             return Command.SINGLE_SUCCESS;
-        }
-        if (!gm.isSorted()) {
-            gm.sortWaiting();
-            ctx.getSource().getSender().sendMessage(
-                Component.text("Auto-sorted waiting players.", NamedTextColor.YELLOW));
         }
         if (gm.startGame()) {
             ctx.getSource().getSender().sendMessage(

@@ -9,6 +9,7 @@ import org.bukkit.util.Vector;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Objects;
 
 public class PlayerData {
 
@@ -72,7 +73,7 @@ public class PlayerData {
             player.getEnderChest().getContents().clone(),
             player.getHealth(),
             player.getAttribute(Attribute.MAX_HEALTH) != null
-                ? player.getAttribute(Attribute.MAX_HEALTH).getBaseValue() : 20.0,
+                ? Objects.requireNonNull(player.getAttribute(Attribute.MAX_HEALTH)).getBaseValue() : 20.0,
             player.getAbsorptionAmount(),
             player.getFoodLevel(),
             player.getSaturation(),
@@ -114,7 +115,7 @@ public class PlayerData {
         player.getInventory().setContents(inventoryContents);
         player.getEnderChest().setContents(enderChestContents);
         if (player.getAttribute(Attribute.MAX_HEALTH) != null) {
-            player.getAttribute(Attribute.MAX_HEALTH).setBaseValue(maxHealth);
+            Objects.requireNonNull(player.getAttribute(Attribute.MAX_HEALTH)).setBaseValue(maxHealth);
         }
         player.setHealth(Math.min(health, player.getMaxHealth()));
         player.setAbsorptionAmount(absorptionAmount);
@@ -127,7 +128,7 @@ public class PlayerData {
         player.setFireTicks(fireTicks);
         player.setFallDistance(fallDistance);
         player.setVelocity(velocity);
-        potionEffects.forEach(e -> player.addPotionEffect(e));
+        potionEffects.forEach(player::addPotionEffect);
         player.setWalkSpeed(walkSpeed);
         if (bedSpawnLocation != null) {
             player.setBedSpawnLocation(bedSpawnLocation, true);

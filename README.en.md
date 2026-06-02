@@ -8,17 +8,17 @@ Survival relay challenge — players take turns entering survival, inheriting st
 
 All commands require the `relayrace.command` permission (default OP). Root command `/relayrace`, alias `/rr`.
 
-| Command | Description |
-|------|------|
-| `/rr join <player>` | Add player(s) to the queue |
-| `/rr leave <player>` | Remove player(s) from the queue |
-| `/rr sort` | Randomly shuffle the queue |
-| `/rr start` | Start the game (auto-sorts if not sorted) |
-| `/rr next` | Force switch to the next player |
-| `/rr stop` | Force stop the game |
+| Command                  | Description                                     |
+|--------------------------|-------------------------------------------------|
+| `/rr join <player>`      | Add player(s) to the queue                      |
+| `/rr leave <player>`     | Remove player(s) from the queue                 |
+| `/rr sort`               | Randomly shuffle the queue                      |
+| `/rr start`              | Start the game (auto-sorts if not sorted)       |
+| `/rr next`               | Force switch to the next player                 |
+| `/rr stop`               | Force stop the game                             |
 | `/rr playtime [seconds]` | View or set turn duration (default 300 seconds) |
-| `/rr loop [true/false]` | View or set loop mode (default on) |
-| `/rr debug [true/false]` | View or set debug mode |
+| `/rr loop [true/false]`  | View or set loop mode (default on)              |
+| `/rr debug [true/false]` | View or set debug mode                          |
 
 ## Configuration
 
