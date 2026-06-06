@@ -128,6 +128,7 @@ public class PlayerData {
         player.setFireTicks(fireTicks);
         player.setFallDistance(fallDistance);
         player.setVelocity(velocity);
+        player.getActivePotionEffects().forEach(e -> player.removePotionEffect(e.getType()));
         potionEffects.forEach(player::addPotionEffect);
         player.setWalkSpeed(walkSpeed);
         if (bedSpawnLocation != null) {

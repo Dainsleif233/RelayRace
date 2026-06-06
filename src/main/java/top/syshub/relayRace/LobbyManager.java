@@ -36,17 +36,21 @@ public class LobbyManager {
         creator.type(WorldType.FLAT);
         creator.generatorSettings("{\"layers\":[{\"height\":1,\"block\":\"minecraft:bedrock\"},{\"height\":127,\"block\":\"minecraft:dirt\"},{\"height\":1,\"block\":\"minecraft:grass_block\"}]}");
         lobbyWorld = creator.createWorld();
-        int topY;
         if (lobbyWorld != null) {
-            topY = lobbyWorld.getHighestBlockYAt(0, 0);
-            lobbyWorld.setSpawnLocation(0, topY + 1, 0);
+            lobbyWorld.setSpawnLocation(0, 65, 0);
         }
     }
 
     public void teleportToLobby(Player player) {
-        Location spawn = lobbyWorld.getSpawnLocation();
-        player.setRespawnLocation(spawn, true);
-        player.teleport(spawn);
+        player.teleport(new Location(lobbyWorld, 0.5, 65, 0.5));
         player.setFallDistance(0);
+    }
+
+    public Location getLobbySpawn() {
+        return new Location(lobbyWorld, 0.5, 65, 0.5);
+    }
+
+    public World getLobbyWorld() {
+        return lobbyWorld;
     }
 }

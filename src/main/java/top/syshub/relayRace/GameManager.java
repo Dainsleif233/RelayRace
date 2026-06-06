@@ -11,19 +11,32 @@ import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
+import org.bukkit.World;
 import org.bukkit.boss.BarColor;
 import org.bukkit.boss.BarStyle;
 import org.bukkit.boss.BossBar;
 import org.bukkit.attribute.Attribute;
+import org.bukkit.entity.AnimalTamer;
+import org.bukkit.entity.EnderPearl;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.LivingEntity;
+import org.bukkit.entity.Mob;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.Tameable;
 import org.bukkit.scoreboard.Scoreboard;
 import org.bukkit.scoreboard.Team;
 
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.UUID;
 
 public class GameManager {
 
@@ -36,16 +49,28 @@ public class GameManager {
 
     private Player activePlayer;
     private final List<Player> waitingPlayers = new ArrayList<>();
+    private final Set<UUID> offlineWaiting = new HashSet<>();
 
     private BossBar bossBar;
     private ScheduledTask timerTask;
+    private ScheduledTask countdownTask;
 
     private Team greenTeam;
     private Team yellowTeam;
+    private float previousTickRate = 20.0f;
+    private boolean countdownActive = false;
 
     private long gameStartTime;
     private boolean debug;
     private boolean loop;
+    private boolean freeze = true;
+
+    // Pet ownership reverse index: player UUID → owned tameable entity UUIDs.
+    // Populated by EntityTameEvent and synced with world scans during player switch.
+    private final Map<UUID, Set<UUID>> petOwnershipIndex = new HashMap<>();
+    // Deferred pet transfers: entity UUID → new owner UUID, for entities in unloaded chunks.
+    // Applied when the chunk loads via EntitiesLoadEvent.
+    private final Map<UUID, UUID> pendingPetTransfers = new HashMap<>();
 
     public GameManager(RelayRace plugin, LobbyManager lobbyManager) {
         this.plugin = plugin;
@@ -53,17 +78,24 @@ public class GameManager {
         setupTeams();
     }
 
+    public Translator getTranslator() {
+        return plugin.getTranslator();
+    }
+
     // --- Config ---
 
     public void loadConfig() {
+        plugin.getConfig().addDefault("locale", "zh");
         plugin.getConfig().addDefault("time", 300);
         plugin.getConfig().addDefault("debug", false);
         plugin.getConfig().addDefault("loop", true);
+        plugin.getConfig().addDefault("freeze", true);
         plugin.getConfig().options().copyDefaults(true);
         saveConfigAsync();
         turnDuration = plugin.getConfig().getInt("time") * 20;
         debug = plugin.getConfig().getBoolean("debug");
         loop = plugin.getConfig().getBoolean("loop");
+        freeze = plugin.getConfig().getBoolean("freeze");
     }
 
     public int getPlaytimeSeconds() {
@@ -118,8 +150,23 @@ public class GameManager {
         saveConfigAsync();
     }
 
+    public boolean isFreeze() {
+        return freeze;
+    }
+
+    public void setFreeze(boolean freeze) {
+        this.freeze = freeze;
+        plugin.getConfig().set("freeze", freeze);
+        saveConfigAsync();
+    }
+
+    public void setLocale(String locale) {
+        plugin.getConfig().set("locale", locale);
+        saveConfigAsync();
+    }
+
     private void saveConfigAsync() {
-        Bukkit.getAsyncScheduler().runNow(plugin, task -> plugin.saveConfig());
+        Bukkit.getAsyncScheduler().runNow(plugin, _ -> plugin.saveConfig());
     }
 
     // --- Teams ---
@@ -201,10 +248,18 @@ public class GameManager {
     }
 
     private String formattedTimeString() {
-        int seconds = remainingTicks / 20;
-        int min = seconds / 60;
-        int sec = seconds % 60;
-        return String.format("Remaining: %d:%02d", min, sec);
+        int remainingSec = remainingTicks / 20;
+        int remMin = remainingSec / 60;
+        int remSec = remainingSec % 60;
+
+        long elapsed = System.currentTimeMillis() - gameStartTime;
+        int elapsedSec = (int) (elapsed / 1000);
+        int elaMin = elapsedSec / 60;
+        int elaSec = elapsedSec % 60;
+
+        return plugin.getTranslator().translateRaw("game.bossbar.title",
+            String.format("%d:%02d", elaMin, elaSec),
+            String.format("%d:%02d", remMin, remSec));
     }
 
     public void addPlayerToBossBar(Player player) {
@@ -225,8 +280,29 @@ public class GameManager {
      * Handle a player joining the server.
      * Before game: spawn in lobby, unassigned, don't change gamemode.
      * During game: spawn in lobby, unassigned, set to spectator.
+     * <p>
+     * If the player was in the waiting queue while offline, restore their waiting
+     * state and preserve their queue position.
      */
     public void handlePlayerJoin(Player player) {
+        // Check if this player was in the waiting queue while offline
+        if (offlineWaiting.remove(player.getUniqueId())) {
+            // Replace stale Player reference in waitingPlayers with the new one
+            for (int i = 0; i < waitingPlayers.size(); i++) {
+                if (waitingPlayers.get(i).getUniqueId().equals(player.getUniqueId())) {
+                    waitingPlayers.set(i, player);
+                    break;
+                }
+            }
+            // Restore waiting state
+            assignTeam(player, yellowTeam);
+            updateWaitingPrefixes();
+            addPlayerToBossBar(player);
+            lobbyManager.teleportToLobby(player);
+            player.setGameMode(GameMode.ADVENTURE);
+            return;
+        }
+
         removeFromAllGroups(player);
         lobbyManager.teleportToLobby(player);
         if (isRunning()) {
@@ -273,13 +349,14 @@ public class GameManager {
 
     /** Remove player from all tracked groups. */
     private void removeFromAllGroups(Player player) {
-        waitingPlayers.remove(player);
+        waitingPlayers.removeIf(p -> p.getUniqueId().equals(player.getUniqueId()));
         greenTeam.removePlayer(player);
         yellowTeam.removePlayer(player);
         clearPlayerDisplay(player);
         if (activePlayer != null && activePlayer.equals(player)) {
             activePlayer = null;
         }
+        offlineWaiting.remove(player.getUniqueId());
     }
 
     // --- Sorting ---
@@ -287,6 +364,47 @@ public class GameManager {
     public void sortWaiting() {
         Collections.shuffle(waitingPlayers);
         updateWaitingPrefixes();
+    }
+
+    // --- Countdown / Freeze ---
+
+    private void cancelCountdown() {
+        if (countdownTask != null) {
+            countdownTask.cancel();
+            countdownTask = null;
+        }
+        countdownActive = false;
+        Bukkit.getServerTickManager().setTickRate(previousTickRate);
+    }
+
+    private void startCountdown(int seconds, Player target, Runnable onComplete) {
+        cancelCountdown();
+        previousTickRate = Bukkit.getServerTickManager().getTickRate();
+        Bukkit.getServerTickManager().setTickRate(1.0f);
+
+        final int[] remaining = {seconds};
+
+        countdownActive = true;
+
+        countdownTask = Bukkit.getGlobalRegionScheduler().runAtFixedRate(plugin, task -> {
+            if (remaining[0] > 0) {
+                Title title = Title.title(
+                    plugin.getTranslator().translate("game.countdown.number", String.valueOf(remaining[0])),
+                    Component.empty(),
+                    Title.Times.times(Duration.ZERO, Duration.ofMillis(900), Duration.ofMillis(100))
+                );
+                target.showTitle(title);
+                remaining[0]--;
+            } else {
+                task.cancel();
+                countdownTask = null;
+                countdownActive = false;
+                Bukkit.getServerTickManager().setTickRate(previousTickRate);
+                if (onComplete != null) {
+                    onComplete.run();
+                }
+            }
+        }, 1L, 1L);
     }
 
     // --- Game lifecycle ---
@@ -309,6 +427,7 @@ public class GameManager {
         activePlayer.setGameMode(GameMode.SURVIVAL);
 
         Location worldSpawn = Bukkit.getWorlds().getFirst().getSpawnLocation();
+        worldSpawn.getWorld().setFullTime(0);
         activePlayer.teleport(worldSpawn);
         activePlayer.setRespawnLocation(worldSpawn, true);
 
@@ -345,30 +464,60 @@ public class GameManager {
             addPlayerToBossBar(p);
         }
 
-        startTimer();
+        // Freeze + 15s countdown, then start timer (skipped when freeze is disabled)
+        if (freeze) {
+            startCountdown(15, activePlayer, () -> {
+                Title goTitle = Title.title(
+                    plugin.getTranslator().translate("game.go.title"),
+                    Component.empty(),
+                    Title.Times.times(Duration.ZERO, Duration.ofMillis(500), Duration.ofMillis(300))
+                );
+                activePlayer.showTitle(goTitle);
+                startTimer();
+            });
+        } else {
+            startTimer();
+        }
         return true;
     }
 
     public void switchToNextPlayer() {
         if (!isRunning() || activePlayer == null) return;
 
+        // Cancel any ongoing countdown (e.g. from startGame or a previous switch)
+        cancelCountdown();
+
         // Capture current player state
-        PlayerData snapshot = PlayerData.capture(activePlayer);
+        Player oldActive = activePlayer;
+        PlayerData snapshot = PlayerData.capture(oldActive);
+
+        // Save mount/passenger/shoulder references before teleporting old player
+        Entity oldVehicle = oldActive.getVehicle();
+        List<Entity> oldPassengers = new ArrayList<>(oldActive.getPassengers());
+        Entity oldShoulderLeft = oldActive.getShoulderEntityLeft();
+        Entity oldShoulderRight = oldActive.getShoulderEntityRight();
 
         // Move old active to end of waiting (loop) or unassign (no loop)
         if (loop) {
-            activePlayer.setGameMode(GameMode.ADVENTURE);
-            activePlayer.setFallDistance(0);
-            lobbyManager.teleportToLobby(activePlayer);
-            waitingPlayers.add(activePlayer);
-            assignTeam(activePlayer, yellowTeam);
+            oldActive.setGameMode(GameMode.ADVENTURE);
+            oldActive.setFallDistance(0);
+            lobbyManager.teleportToLobby(oldActive);
+            waitingPlayers.add(oldActive);
+            assignTeam(oldActive, yellowTeam);
         } else {
-            activePlayer.setGameMode(GameMode.SPECTATOR);
-            clearPlayerDisplay(activePlayer);
-            greenTeam.removePlayer(activePlayer);
+            oldActive.setGameMode(GameMode.SPECTATOR);
+            clearPlayerDisplay(oldActive);
+            greenTeam.removePlayer(oldActive);
         }
 
         updateWaitingPrefixes();
+
+        // Skip offline players at the front of the queue
+        while (!waitingPlayers.isEmpty() && offlineWaiting.contains(waitingPlayers.getFirst().getUniqueId())) {
+            Player skipped = waitingPlayers.removeFirst();
+            offlineWaiting.remove(skipped.getUniqueId());
+            updateWaitingPrefixes();
+        }
 
         // Check if there's a next player
         if (waitingPlayers.isEmpty()) {
@@ -383,6 +532,23 @@ public class GameManager {
 
         // Apply snapshot
         snapshot.apply(next);
+        redirectMobAggro(oldActive, next);
+        transferPets(oldActive, next);
+
+        // Transfer mount/passenger/shoulder to the new player
+        if (oldVehicle != null) {
+            oldVehicle.addPassenger(next);
+        }
+        for (Entity passenger : oldPassengers) {
+            next.addPassenger(passenger);
+        }
+        if (oldShoulderLeft != null) {
+            next.setShoulderEntityLeft(oldShoulderLeft);
+        }
+        if (oldShoulderRight != null) {
+            next.setShoulderEntityRight(oldShoulderRight);
+        }
+
         next.setGameMode(GameMode.SURVIVAL);
         next.setHasSeenWinScreen(true);
         assignTeam(next, greenTeam);
@@ -391,12 +557,25 @@ public class GameManager {
         updateWaitingPrefixes();
         remainingTicks = turnDuration;
         updateBossBar();
+
+        // Freeze + 10s countdown before the new player can move (skipped when freeze is disabled)
+        if (freeze) {
+            startCountdown(10, next, () -> {
+                Title goTitle = Title.title(
+                    plugin.getTranslator().translate("game.go.title"),
+                    Component.empty(),
+                    Title.Times.times(Duration.ZERO, Duration.ofMillis(500), Duration.ofMillis(300))
+                );
+                next.showTitle(goTitle);
+            });
+        }
     }
 
     public void endGame(boolean wonByPortal) {
         if (gameState != GameState.RUNNING) return;
         gameState = GameState.IDLE;
 
+        cancelCountdown();
         stopTimer();
 
         try {
@@ -413,6 +592,7 @@ public class GameManager {
             yellowTeam.removePlayer(p);
         }
         waitingPlayers.clear();
+        offlineWaiting.clear();
 
         // Teleport all online players to the active player's location
         if (loc != null) {
@@ -424,17 +604,14 @@ public class GameManager {
         activePlayer = null;
 
         // Show title
-        Component titleText;
-        if (wonByPortal) {
-            titleText = Component.text("Game Cleared!", NamedTextColor.GOLD);
-        } else {
-            titleText = Component.text("Game Over", NamedTextColor.RED);
-        }
+        Component titleText = wonByPortal
+            ? plugin.getTranslator().translate("game.end.cleared")
+            : plugin.getTranslator().translate("game.end.over");
         long elapsed = System.currentTimeMillis() - gameStartTime;
         long totalSec = elapsed / 1000;
-        Component subtitleText = Component.text(
-            String.format("Total time: %d:%02d", totalSec / 60, totalSec % 60),
-            NamedTextColor.WHITE
+        Component subtitleText = plugin.getTranslator().translate(
+            "game.end.subtitle",
+            String.format("%d:%02d", totalSec / 60, totalSec % 60)
         );
         Title title = Title.title(titleText, subtitleText,
             Title.Times.times(Duration.ofMillis(500), Duration.ofMillis(3000), Duration.ofMillis(1000)));
@@ -467,12 +644,111 @@ public class GameManager {
         endGame(true);
     }
 
+    // --- Entity bindings inheritance ---
+
+    /** Transfer mob aggro, leash, and thrown ender pearls from {@code from} to {@code to}.
+     * Scans every loaded world except the lobby.
+     * Pet ownership is handled separately by {@link #transferPets} with deferred chunk-load support. */
+    private void redirectMobAggro(Player from, Player to) {
+        World lobbyWorld = lobbyManager.getLobbyWorld();
+        for (World world : Bukkit.getWorlds()) {
+            if (world.equals(lobbyWorld)) {
+                continue;
+            }
+            for (LivingEntity living : world.getLivingEntities()) {
+                if (living instanceof Mob mob && from.equals(mob.getTarget())) {
+                    mob.setTarget(to);
+                }
+                if (living.isLeashed() && from.equals(living.getLeashHolder())) {
+                    living.setLeashHolder(to);
+                }
+            }
+        }
+        for (EnderPearl pearl : from.getEnderPearls()) {
+            pearl.setShooter(to);
+        }
+    }
+
+    // --- Pet ownership reverse index ---
+
+    /** Record a tamed entity in the reverse index. Called from {@code EntityTameEvent}. */
+    public void onEntityTame(UUID playerUUID, UUID entityUUID) {
+        // Remove from any previous owner to handle re-taming
+        petOwnershipIndex.values().forEach(set -> set.remove(entityUUID));
+        pendingPetTransfers.remove(entityUUID);
+        petOwnershipIndex.computeIfAbsent(playerUUID, _ -> new HashSet<>()).add(entityUUID);
+    }
+
+    /** Remove a dead entity from the index and pending transfers. Called from {@code EntityDeathEvent}. */
+    public void onEntityDeath(UUID entityUUID) {
+        petOwnershipIndex.values().forEach(set -> set.remove(entityUUID));
+        pendingPetTransfers.remove(entityUUID);
+    }
+
+    /** Apply pending pet transfers when a chunk loads. Called from {@code EntitiesLoadEvent}. */
+    public void onEntitiesLoad(Collection<Entity> entities) {
+        for (Entity entity : entities) {
+            UUID petUUID = entity.getUniqueId();
+            UUID newOwnerUUID = pendingPetTransfers.remove(petUUID);
+            if (newOwnerUUID != null && entity instanceof Tameable tameable) {
+                Player newOwner = Bukkit.getPlayer(newOwnerUUID);
+                if (newOwner != null) {
+                    tameable.setOwner(newOwner);
+                }
+            }
+        }
+    }
+
+    /** Transfer all pet ownership from one player to another.
+     * Loaded pets are setOwner'd immediately; unloaded pets are deferred until chunk load. */
+    private void transferPets(Player from, Player to) {
+        UUID fromUUID = from.getUniqueId();
+        UUID toUUID = to.getUniqueId();
+
+        // Start from the reverse-index set
+        Set<UUID> allPets = new HashSet<>(petOwnershipIndex.getOrDefault(fromUUID, Set.of()));
+
+        // Scan loaded worlds to catch stragglers and apply transfers immediately
+        World lobbyWorld = lobbyManager.getLobbyWorld();
+        for (World world : Bukkit.getWorlds()) {
+            if (world.equals(lobbyWorld)) continue;
+            for (LivingEntity living : world.getLivingEntities()) {
+                if (living instanceof Tameable tameable) {
+                    AnimalTamer owner = tameable.getOwner();
+                    if (owner != null && fromUUID.equals(owner.getUniqueId())) {
+                        allPets.add(living.getUniqueId());
+                        tameable.setOwner(to);
+                    }
+                }
+            }
+        }
+
+        // For index entries not caught by the scan (unloaded), defer
+        for (UUID petUUID : allPets) {
+            Entity entity = Bukkit.getEntity(petUUID);
+            if (entity instanceof Tameable tameable && !to.equals(tameable.getOwner())) {
+                // Race: loaded between scan and now — apply
+                tameable.setOwner(to);
+            } else if (entity == null) {
+                // Still unloaded — defer until chunk load
+                pendingPetTransfers.put(petUUID, toUUID);
+            }
+            // else: already handled by scan
+        }
+
+        // Transfer index to new owner
+        if (!allPets.isEmpty()) {
+            petOwnershipIndex.put(toUUID, allPets);
+        }
+        petOwnershipIndex.remove(fromUUID);
+    }
+
     // --- Timer ---
 
     private void startTimer() {
         stopTimer();
         timerTask = Bukkit.getGlobalRegionScheduler().runAtFixedRate(plugin,
-            task -> tick(), 1L, 1L);
+                _ -> tick(), 1L, 1L);
     }
 
     private void stopTimer() {
@@ -485,6 +761,7 @@ public class GameManager {
     private void tick() {
         if (gameState != GameState.RUNNING) return;
         if (Bukkit.getServerTickManager().isFrozen()) return;
+        if (countdownActive) return;
 
         remainingTicks--;
 
@@ -500,14 +777,31 @@ public class GameManager {
     // --- Player removal (disconnect) ---
 
     public void removePlayer(Player player) {
+        cancelCountdown();
         removePlayerFromBossBar(player);
         if (isActivePlayer(player)) {
             // Active player disconnected — same as /rr next logic
             PlayerData snapshot = PlayerData.capture(player);
+
+            // Save mount/passenger references before disconnect
+            Entity vehicle = player.getVehicle();
+            List<Entity> passengers = new ArrayList<>(player.getPassengers());
+
             activePlayer = null;
             if (!waitingPlayers.isEmpty()) {
                 activePlayer = waitingPlayers.removeFirst();
                 snapshot.apply(activePlayer);
+                redirectMobAggro(player, activePlayer);
+                transferPets(player, activePlayer);
+
+                // Transfer mount/passenger to the new player
+                if (vehicle != null) {
+                    vehicle.addPassenger(activePlayer);
+                }
+                for (Entity p : passengers) {
+                    activePlayer.addPassenger(p);
+                }
+
                 activePlayer.setGameMode(GameMode.SURVIVAL);
                 activePlayer.setHasSeenWinScreen(true);
                 assignTeam(activePlayer, greenTeam);
@@ -519,8 +813,16 @@ public class GameManager {
                 endGame(false);
             }
         } else if (isWaiting(player)) {
-            waitingPlayers.remove(player);
-            updateWaitingPrefixes();
+            if (isRunning()) {
+                // During game: preserve queue position, mark as offline
+                offlineWaiting.add(player.getUniqueId());
+                yellowTeam.removePlayer(player);
+                clearPlayerDisplay(player);
+            } else {
+                // Before game: remove from queue entirely
+                waitingPlayers.remove(player);
+                updateWaitingPrefixes();
+            }
         }
         // Unassigned players: nothing to clean up
         greenTeam.removePlayer(player);
@@ -530,10 +832,13 @@ public class GameManager {
     // --- Cleanup ---
 
     public void disable() {
+        cancelCountdown();
         stopTimer();
         if (bossBar != null) {
             bossBar.removeAll();
             bossBar = null;
         }
+        petOwnershipIndex.clear();
+        pendingPetTransfers.clear();
     }
 }

@@ -3,6 +3,7 @@ package top.syshub.relayRace;
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.BoolArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
+import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.tree.LiteralCommandNode;
@@ -11,12 +12,11 @@ import io.papermc.paper.command.brigadier.Commands;
 import io.papermc.paper.command.brigadier.argument.ArgumentTypes;
 import io.papermc.paper.command.brigadier.argument.resolvers.selector.PlayerSelectorArgumentResolver;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.entity.Player;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 
 public final class CommandHandler {
 
@@ -29,10 +29,27 @@ public final class CommandHandler {
     private static LiteralCommandNode<CommandSourceStack> buildCommandTree(GameManager gameManager) {
         return Commands.literal("relayrace")
             .requires(source -> source.getSender().hasPermission("relayrace.command"))
-            .then(Commands.literal("playtime")
-                .executes(ctx -> playtimeGet(ctx, gameManager))
-                .then(Commands.argument("time", IntegerArgumentType.integer(1))
-                    .executes(ctx -> playtimeSet(ctx, gameManager))))
+            .then(Commands.literal("config")
+                .then(Commands.literal("playtime")
+                    .executes(ctx -> configPlaytimeGet(ctx, gameManager))
+                    .then(Commands.argument("time", IntegerArgumentType.integer(1))
+                        .executes(ctx -> configPlaytimeSet(ctx, gameManager))))
+                .then(Commands.literal("debug")
+                    .executes(ctx -> configDebugGet(ctx, gameManager))
+                    .then(Commands.argument("enable", BoolArgumentType.bool())
+                        .executes(ctx -> configDebugSet(ctx, gameManager))))
+                .then(Commands.literal("loop")
+                    .executes(ctx -> configLoopGet(ctx, gameManager))
+                    .then(Commands.argument("enable", BoolArgumentType.bool())
+                        .executes(ctx -> configLoopSet(ctx, gameManager))))
+                .then(Commands.literal("freeze")
+                    .executes(ctx -> configFreezeGet(ctx, gameManager))
+                    .then(Commands.argument("enable", BoolArgumentType.bool())
+                        .executes(ctx -> configFreezeSet(ctx, gameManager))))
+                .then(Commands.literal("locales")
+                    .executes(ctx -> configLocalesGet(ctx, gameManager))
+                    .then(Commands.argument("locale", StringArgumentType.word())
+                        .executes(ctx -> configLocalesSet(ctx, gameManager)))))
             .then(Commands.literal("sort")
                 .executes(ctx -> sort(ctx, gameManager)))
             .then(Commands.literal("join")
@@ -47,41 +64,33 @@ public final class CommandHandler {
                 .executes(ctx -> next(ctx, gameManager)))
             .then(Commands.literal("stop")
                 .executes(ctx -> stop(ctx, gameManager)))
-            .then(Commands.literal("debug")
-                .executes(ctx -> debugGet(ctx, gameManager))
-                .then(Commands.argument("enable", BoolArgumentType.bool())
-                    .executes(ctx -> debugSet(ctx, gameManager))))
-            .then(Commands.literal("loop")
-                .executes(ctx -> loopGet(ctx, gameManager))
-                .then(Commands.argument("enable", BoolArgumentType.bool())
-                    .executes(ctx -> loopSet(ctx, gameManager))))
             .build();
     }
 
-    private static int playtimeGet(CommandContext<CommandSourceStack> ctx, GameManager gm) {
+    private static int configPlaytimeGet(CommandContext<CommandSourceStack> ctx, GameManager gm) {
         int seconds = gm.getPlaytimeSeconds();
         ctx.getSource().getSender().sendMessage(
-            Component.text("Current playtime: " + seconds + " seconds", NamedTextColor.GREEN));
+            gm.getTranslator().translate("command.config.playtime.get", String.valueOf(seconds)));
         return Command.SINGLE_SUCCESS;
     }
 
-    private static int playtimeSet(CommandContext<CommandSourceStack> ctx, GameManager gm) {
+    private static int configPlaytimeSet(CommandContext<CommandSourceStack> ctx, GameManager gm) {
         if (gm.isRunning()) {
             ctx.getSource().getSender().sendMessage(
-                Component.text("Cannot change playtime while game is running.", NamedTextColor.RED));
+                gm.getTranslator().translate("command.config.playtime.running"));
             return Command.SINGLE_SUCCESS;
         }
         int seconds = ctx.getArgument("time", Integer.class);
         gm.setPlaytimeSeconds(seconds);
         ctx.getSource().getSender().sendMessage(
-            Component.text("Playtime set to " + seconds + " seconds.", NamedTextColor.GREEN));
+            gm.getTranslator().translate("command.config.playtime.set", String.valueOf(seconds)));
         return Command.SINGLE_SUCCESS;
     }
 
     private static int sort(CommandContext<CommandSourceStack> ctx, GameManager gm) {
         gm.sortWaiting();
         ctx.getSource().getSender().sendMessage(
-            Component.text("Waiting players have been randomly sorted.", NamedTextColor.GREEN));
+            gm.getTranslator().translate("command.sort.done"));
         return Command.SINGLE_SUCCESS;
     }
 
@@ -92,7 +101,7 @@ public final class CommandHandler {
             targets = resolver.resolve(ctx.getSource());
         } catch (CommandSyntaxException e) {
             ctx.getSource().getSender().sendMessage(
-                Component.text("Invalid player selector.", NamedTextColor.RED));
+                gm.getTranslator().translate("command.select.invalid"));
             return Command.SINGLE_SUCCESS;
         }
         int count = 0;
@@ -103,7 +112,7 @@ public final class CommandHandler {
             }
         }
         ctx.getSource().getSender().sendMessage(
-            Component.text("Added " + count + " player(s) to waiting queue.", NamedTextColor.GREEN));
+            gm.getTranslator().translate("command.join.added", String.valueOf(count)));
         return count;
     }
 
@@ -114,7 +123,7 @@ public final class CommandHandler {
             targets = resolver.resolve(ctx.getSource());
         } catch (CommandSyntaxException e) {
             ctx.getSource().getSender().sendMessage(
-                Component.text("Invalid player selector.", NamedTextColor.RED));
+                gm.getTranslator().translate("command.select.invalid"));
             return Command.SINGLE_SUCCESS;
         }
         int count = 0;
@@ -125,25 +134,25 @@ public final class CommandHandler {
             }
         }
         ctx.getSource().getSender().sendMessage(
-            Component.text("Removed " + count + " player(s) from waiting queue.", NamedTextColor.GREEN));
+            gm.getTranslator().translate("command.leave.removed", String.valueOf(count)));
         return count;
     }
 
     private static int start(CommandContext<CommandSourceStack> ctx, GameManager gm) {
         if (gm.isRunning()) {
             ctx.getSource().getSender().sendMessage(
-                Component.text("Game is already running.", NamedTextColor.RED));
+                gm.getTranslator().translate("command.start.running"));
             return Command.SINGLE_SUCCESS;
         }
         if (gm.startGame()) {
             ctx.getSource().getSender().sendMessage(
-                Component.text("Game started!", NamedTextColor.GREEN));
+                gm.getTranslator().translate("command.start.success"));
         } else if (gm.isRunning()) {
             ctx.getSource().getSender().sendMessage(
-                Component.text("Game is already running.", NamedTextColor.RED));
+                gm.getTranslator().translate("command.start.running"));
         } else {
             ctx.getSource().getSender().sendMessage(
-                Component.text("Failed to start. Add players with /rr join first.", NamedTextColor.RED));
+                gm.getTranslator().translate("command.start.failed"));
         }
         return Command.SINGLE_SUCCESS;
     }
@@ -151,52 +160,91 @@ public final class CommandHandler {
     private static int next(CommandContext<CommandSourceStack> ctx, GameManager gm) {
         if (!gm.isRunning()) {
             ctx.getSource().getSender().sendMessage(
-                Component.text("No game is running.", NamedTextColor.RED));
+                gm.getTranslator().translate("command.next.none"));
             return Command.SINGLE_SUCCESS;
         }
         gm.switchToNextPlayer();
         ctx.getSource().getSender().sendMessage(
-            Component.text("Switched to next player.", NamedTextColor.GREEN));
+            gm.getTranslator().translate("command.next.success"));
         return Command.SINGLE_SUCCESS;
     }
 
     private static int stop(CommandContext<CommandSourceStack> ctx, GameManager gm) {
         if (!gm.isRunning()) {
             ctx.getSource().getSender().sendMessage(
-                Component.text("No game is running.", NamedTextColor.RED));
+                gm.getTranslator().translate("command.stop.none"));
             return Command.SINGLE_SUCCESS;
         }
         gm.endGame(false);
         ctx.getSource().getSender().sendMessage(
-            Component.text("Game stopped.", NamedTextColor.GREEN));
+            gm.getTranslator().translate("command.stop.success"));
         return Command.SINGLE_SUCCESS;
     }
 
-    private static int debugGet(CommandContext<CommandSourceStack> ctx, GameManager gm) {
+    private static int configDebugGet(CommandContext<CommandSourceStack> ctx, GameManager gm) {
         ctx.getSource().getSender().sendMessage(
-            Component.text("Debug mode: " + gm.isDebug(), NamedTextColor.GREEN));
+            gm.getTranslator().translate("command.config.debug.status", String.valueOf(gm.isDebug())));
         return Command.SINGLE_SUCCESS;
     }
 
-    private static int debugSet(CommandContext<CommandSourceStack> ctx, GameManager gm) {
+    private static int configDebugSet(CommandContext<CommandSourceStack> ctx, GameManager gm) {
         boolean enabled = ctx.getArgument("enable", Boolean.class);
         gm.setDebug(enabled);
         ctx.getSource().getSender().sendMessage(
-            Component.text("Debug mode: " + enabled, NamedTextColor.GREEN));
+            gm.getTranslator().translate("command.config.debug.status", String.valueOf(enabled)));
         return Command.SINGLE_SUCCESS;
     }
 
-    private static int loopGet(CommandContext<CommandSourceStack> ctx, GameManager gm) {
+    private static int configLoopGet(CommandContext<CommandSourceStack> ctx, GameManager gm) {
         ctx.getSource().getSender().sendMessage(
-            Component.text("Loop mode: " + gm.isLoop(), NamedTextColor.GREEN));
+            gm.getTranslator().translate("command.config.loop.status", String.valueOf(gm.isLoop())));
         return Command.SINGLE_SUCCESS;
     }
 
-    private static int loopSet(CommandContext<CommandSourceStack> ctx, GameManager gm) {
+    private static int configLoopSet(CommandContext<CommandSourceStack> ctx, GameManager gm) {
         boolean enabled = ctx.getArgument("enable", Boolean.class);
         gm.setLoop(enabled);
         ctx.getSource().getSender().sendMessage(
-            Component.text("Loop mode: " + enabled, NamedTextColor.GREEN));
+            gm.getTranslator().translate("command.config.loop.status", String.valueOf(enabled)));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int configLocalesGet(CommandContext<CommandSourceStack> ctx, GameManager gm) {
+        String current = gm.getTranslator().getCurrentLocale();
+        ctx.getSource().getSender().sendMessage(
+            gm.getTranslator().translate("command.config.locales.current", current));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int configLocalesSet(CommandContext<CommandSourceStack> ctx, GameManager gm) {
+        String locale = ctx.getArgument("locale", String.class);
+        Set<String> available = gm.getTranslator().getAvailableLocales();
+
+        if (!available.contains(locale)) {
+            String joined = String.join(", ", available);
+            ctx.getSource().getSender().sendMessage(
+                gm.getTranslator().translate("command.config.locales.invalid", joined));
+            return Command.SINGLE_SUCCESS;
+        }
+
+        gm.setLocale(locale);
+        gm.getTranslator().loadLocale(locale);
+        ctx.getSource().getSender().sendMessage(
+            gm.getTranslator().translate("command.config.locales.changed", locale));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int configFreezeGet(CommandContext<CommandSourceStack> ctx, GameManager gm) {
+        ctx.getSource().getSender().sendMessage(
+            gm.getTranslator().translate("command.config.freeze.status", String.valueOf(gm.isFreeze())));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int configFreezeSet(CommandContext<CommandSourceStack> ctx, GameManager gm) {
+        boolean enabled = ctx.getArgument("enable", Boolean.class);
+        gm.setFreeze(enabled);
+        ctx.getSource().getSender().sendMessage(
+            gm.getTranslator().translate("command.config.freeze.status", String.valueOf(enabled)));
         return Command.SINGLE_SUCCESS;
     }
 }
