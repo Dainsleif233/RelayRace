@@ -8,19 +8,19 @@ Survival relay challenge — players take turns entering survival, inheriting st
 
 All commands require the `relayrace.command` permission (default OP). Root command `/relayrace`, alias `/rr`.
 
-| Command                  | Description                                           |
-|--------------------------|-------------------------------------------------------|
-| `/rr join <player>`      | Add player(s) to the queue                            |
-| `/rr leave <player>`     | Remove player(s) from the queue                       |
-| `/rr sort`               | Randomly shuffle the queue                            |
-| `/rr start`              | Start the game (15-second frozen countdown by default)  |
-| `/rr next`               | Force switch to the next player (10-second frozen countdown) |
-| `/rr stop`               | Force stop the game                                   |
-| `/rr config playtime [seconds]`  | View or set turn duration (default 300 seconds)       |
-| `/rr config loop [true/false]`   | View or set loop mode (default on)                    |
-| `/rr config freeze [true/false]` | View or set freeze countdown (default on)             |
-| `/rr config debug [true/false]`  | View or set debug mode                                |
-| `/rr config locales [<locale>]`  | View or set locale (zh / en)                    |
+| Command                          | Description                                                  |
+|----------------------------------|--------------------------------------------------------------|
+| `/rr join <player>`              | Add player(s) to the queue                                   |
+| `/rr leave <player>`             | Remove player(s) from the queue                              |
+| `/rr sort`                       | Randomly shuffle the queue                                   |
+| `/rr start`                      | Start the game (15-second frozen countdown by default)       |
+| `/rr next`                       | Force switch to the next player (10-second frozen countdown) |
+| `/rr stop`                       | Force stop the game                                          |
+| `/rr config playtime [seconds]`  | View or set turn duration (default 300 seconds)              |
+| `/rr config loop [true/false]`   | View or set loop mode (default on)                           |
+| `/rr config freeze [true/false]` | View or set freeze countdown (default on)                    |
+| `/rr config debug [true/false]`  | View or set debug mode                                       |
+| `/rr config locales [<locale>]`  | View or set locale (zh / en)                                 |
 
 ## Game Mechanics
 
