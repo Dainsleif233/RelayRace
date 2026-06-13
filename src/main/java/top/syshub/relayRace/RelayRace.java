@@ -9,9 +9,14 @@ public final class RelayRace extends JavaPlugin {
     private Translator translator;
     private GameManager gameManager;
     private LobbyMessenger lobbyMessenger;
+    private RelayRaceConfig config;
 
     public Translator getTranslator() {
         return translator;
+    }
+
+    public RelayRaceConfig getRelayConfig() {
+        return config;
     }
 
     @Override
@@ -25,7 +30,7 @@ public final class RelayRace extends JavaPlugin {
         translator.loadLocale(getConfig().getString("locale", "zh"));
 
         // Load config
-        RelayRaceConfig config = new RelayRaceConfig(this);
+        config = new RelayRaceConfig(this);
         config.load();
 
         gameManager = new GameManager(this, lobbyManager, config);
@@ -67,7 +72,7 @@ public final class RelayRace extends JavaPlugin {
      * 由 EventListener、LobbyMessenger 等类共用。
      */
     public void debug(String msg) {
-        if (gameManager != null && gameManager.getConfig().isDebug()) {
+        if (getRelayConfig().isDebug()) {
             getLogger().warning("[DEBUG] " + msg);
         }
     }

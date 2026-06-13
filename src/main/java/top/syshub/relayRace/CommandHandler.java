@@ -23,41 +23,41 @@ public final class CommandHandler {
     private CommandHandler() {}
 
     public static void register(RelayRace plugin, GameManager gameManager) {
-        plugin.getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event -> event.registrar().register(buildCommandTree(gameManager), "RelayRace command", List.of("rr")));
+        plugin.getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event -> event.registrar().register(buildCommandTree(plugin, gameManager), "RelayRace command", List.of("rr")));
     }
 
-    private static LiteralCommandNode<CommandSourceStack> buildCommandTree(GameManager gameManager) {
+    private static LiteralCommandNode<CommandSourceStack> buildCommandTree(RelayRace plugin, GameManager gameManager) {
         return Commands.literal("relayrace")
             .requires(source -> source.getSender().hasPermission("relayrace.command"))
             .then(Commands.literal("config")
                 .then(Commands.literal("playtime")
-                    .executes(ctx -> configPlaytimeGet(ctx, gameManager))
+                    .executes(ctx -> configPlaytimeGet(ctx, plugin, gameManager))
                     .then(Commands.argument("time", IntegerArgumentType.integer(1))
-                        .executes(ctx -> configPlaytimeSet(ctx, gameManager))))
+                        .executes(ctx -> configPlaytimeSet(ctx, plugin, gameManager))))
                 .then(Commands.literal("debug")
-                    .executes(ctx -> configDebugGet(ctx, gameManager))
+                    .executes(ctx -> configDebugGet(ctx, plugin, gameManager))
                     .then(Commands.argument("enable", BoolArgumentType.bool())
-                        .executes(ctx -> configDebugSet(ctx, gameManager))))
+                        .executes(ctx -> configDebugSet(ctx, plugin, gameManager))))
                 .then(Commands.literal("loop")
-                    .executes(ctx -> configLoopGet(ctx, gameManager))
+                    .executes(ctx -> configLoopGet(ctx, plugin, gameManager))
                     .then(Commands.argument("enable", BoolArgumentType.bool())
-                        .executes(ctx -> configLoopSet(ctx, gameManager))))
+                        .executes(ctx -> configLoopSet(ctx, plugin, gameManager))))
                 .then(Commands.literal("freeze")
-                    .executes(ctx -> configFreezeGet(ctx, gameManager))
+                    .executes(ctx -> configFreezeGet(ctx, plugin, gameManager))
                     .then(Commands.argument("enable", BoolArgumentType.bool())
-                        .executes(ctx -> configFreezeSet(ctx, gameManager))))
+                        .executes(ctx -> configFreezeSet(ctx, plugin, gameManager))))
                 .then(Commands.literal("externallobby")
-                    .executes(ctx -> configExternalLobbyGet(ctx, gameManager))
+                    .executes(ctx -> configExternalLobbyGet(ctx, plugin, gameManager))
                     .then(Commands.argument("enable", BoolArgumentType.bool())
-                        .executes(ctx -> configExternalLobbySet(ctx, gameManager))))
+                        .executes(ctx -> configExternalLobbySet(ctx, plugin, gameManager))))
                 .then(Commands.literal("externallobby-server")
-                    .executes(ctx -> configExternalLobbyServerGet(ctx, gameManager))
+                    .executes(ctx -> configExternalLobbyServerGet(ctx, plugin, gameManager))
                     .then(Commands.argument("server", StringArgumentType.word())
-                        .executes(ctx -> configExternalLobbyServerSet(ctx, gameManager))))
+                        .executes(ctx -> configExternalLobbyServerSet(ctx, plugin, gameManager))))
                 .then(Commands.literal("locales")
                     .executes(ctx -> configLocalesGet(ctx, gameManager))
                     .then(Commands.argument("locale", StringArgumentType.word())
-                        .executes(ctx -> configLocalesSet(ctx, gameManager)))))
+                        .executes(ctx -> configLocalesSet(ctx, plugin, gameManager)))))
             .then(Commands.literal("sort")
                 .executes(ctx -> sort(ctx, gameManager)))
             .then(Commands.literal("join")
@@ -75,14 +75,14 @@ public final class CommandHandler {
             .build();
     }
 
-    private static int configPlaytimeGet(CommandContext<CommandSourceStack> ctx, GameManager gm) {
-        int seconds = gm.getConfig().getPlaytimeSeconds();
+    private static int configPlaytimeGet(CommandContext<CommandSourceStack> ctx, RelayRace plugin, GameManager gm) {
+        int seconds = plugin.getRelayConfig().getPlaytimeSeconds();
         ctx.getSource().getSender().sendMessage(
             gm.getTranslator().translate("command.config.playtime.get", String.valueOf(seconds)));
         return Command.SINGLE_SUCCESS;
     }
 
-    private static int configPlaytimeSet(CommandContext<CommandSourceStack> ctx, GameManager gm) {
+    private static int configPlaytimeSet(CommandContext<CommandSourceStack> ctx, RelayRace plugin, GameManager gm) {
         if (gm.isRunning()) {
             ctx.getSource().getSender().sendMessage(
                 gm.getTranslator().translate("command.config.playtime.running"));
@@ -194,29 +194,29 @@ public final class CommandHandler {
         return Command.SINGLE_SUCCESS;
     }
 
-    private static int configDebugGet(CommandContext<CommandSourceStack> ctx, GameManager gm) {
+    private static int configDebugGet(CommandContext<CommandSourceStack> ctx, RelayRace plugin, GameManager gm) {
         ctx.getSource().getSender().sendMessage(
-            gm.getTranslator().translate("command.config.debug.status", String.valueOf(gm.getConfig().isDebug())));
+            gm.getTranslator().translate("command.config.debug.status", String.valueOf(plugin.getRelayConfig().isDebug())));
         return Command.SINGLE_SUCCESS;
     }
 
-    private static int configDebugSet(CommandContext<CommandSourceStack> ctx, GameManager gm) {
+    private static int configDebugSet(CommandContext<CommandSourceStack> ctx, RelayRace plugin, GameManager gm) {
         boolean enabled = ctx.getArgument("enable", Boolean.class);
-        gm.getConfig().setDebug(enabled);
+        plugin.getRelayConfig().setDebug(enabled);
         ctx.getSource().getSender().sendMessage(
             gm.getTranslator().translate("command.config.debug.status", String.valueOf(enabled)));
         return Command.SINGLE_SUCCESS;
     }
 
-    private static int configLoopGet(CommandContext<CommandSourceStack> ctx, GameManager gm) {
+    private static int configLoopGet(CommandContext<CommandSourceStack> ctx, RelayRace plugin, GameManager gm) {
         ctx.getSource().getSender().sendMessage(
-            gm.getTranslator().translate("command.config.loop.status", String.valueOf(gm.getConfig().isLoop())));
+            gm.getTranslator().translate("command.config.loop.status", String.valueOf(plugin.getRelayConfig().isLoop())));
         return Command.SINGLE_SUCCESS;
     }
 
-    private static int configLoopSet(CommandContext<CommandSourceStack> ctx, GameManager gm) {
+    private static int configLoopSet(CommandContext<CommandSourceStack> ctx, RelayRace plugin, GameManager gm) {
         boolean enabled = ctx.getArgument("enable", Boolean.class);
-        gm.getConfig().setLoop(enabled);
+        plugin.getRelayConfig().setLoop(enabled);
         ctx.getSource().getSender().sendMessage(
             gm.getTranslator().translate("command.config.loop.status", String.valueOf(enabled)));
         return Command.SINGLE_SUCCESS;
@@ -229,7 +229,7 @@ public final class CommandHandler {
         return Command.SINGLE_SUCCESS;
     }
 
-    private static int configLocalesSet(CommandContext<CommandSourceStack> ctx, GameManager gm) {
+    private static int configLocalesSet(CommandContext<CommandSourceStack> ctx, RelayRace plugin, GameManager gm) {
         String locale = ctx.getArgument("locale", String.class);
         Set<String> available = gm.getTranslator().getAvailableLocales();
 
@@ -240,34 +240,34 @@ public final class CommandHandler {
             return Command.SINGLE_SUCCESS;
         }
 
-        gm.getConfig().setLocale(locale);
+        plugin.getRelayConfig().setLocale(locale);
         gm.getTranslator().loadLocale(locale);
         ctx.getSource().getSender().sendMessage(
             gm.getTranslator().translate("command.config.locales.changed", locale));
         return Command.SINGLE_SUCCESS;
     }
 
-    private static int configFreezeGet(CommandContext<CommandSourceStack> ctx, GameManager gm) {
+    private static int configFreezeGet(CommandContext<CommandSourceStack> ctx, RelayRace plugin, GameManager gm) {
         ctx.getSource().getSender().sendMessage(
-            gm.getTranslator().translate("command.config.freeze.status", String.valueOf(gm.getConfig().isFreeze())));
+            gm.getTranslator().translate("command.config.freeze.status", String.valueOf(plugin.getRelayConfig().isFreeze())));
         return Command.SINGLE_SUCCESS;
     }
 
-    private static int configFreezeSet(CommandContext<CommandSourceStack> ctx, GameManager gm) {
+    private static int configFreezeSet(CommandContext<CommandSourceStack> ctx, RelayRace plugin, GameManager gm) {
         boolean enabled = ctx.getArgument("enable", Boolean.class);
-        gm.getConfig().setFreeze(enabled);
+        plugin.getRelayConfig().setFreeze(enabled);
         ctx.getSource().getSender().sendMessage(
             gm.getTranslator().translate("command.config.freeze.status", String.valueOf(enabled)));
         return Command.SINGLE_SUCCESS;
     }
 
-    private static int configExternalLobbyGet(CommandContext<CommandSourceStack> ctx, GameManager gm) {
+    private static int configExternalLobbyGet(CommandContext<CommandSourceStack> ctx, RelayRace plugin, GameManager gm) {
         ctx.getSource().getSender().sendMessage(
-            gm.getTranslator().translate("command.config.externallobby.status", String.valueOf(gm.getConfig().isExternalLobby())));
+            gm.getTranslator().translate("command.config.externallobby.status", String.valueOf(plugin.getRelayConfig().isExternalLobby())));
         return Command.SINGLE_SUCCESS;
     }
 
-    private static int configExternalLobbySet(CommandContext<CommandSourceStack> ctx, GameManager gm) {
+    private static int configExternalLobbySet(CommandContext<CommandSourceStack> ctx, RelayRace plugin, GameManager gm) {
         boolean enabled = ctx.getArgument("enable", Boolean.class);
         gm.setExternalLobby(enabled);
         ctx.getSource().getSender().sendMessage(
@@ -275,13 +275,13 @@ public final class CommandHandler {
         return Command.SINGLE_SUCCESS;
     }
 
-    private static int configExternalLobbyServerGet(CommandContext<CommandSourceStack> ctx, GameManager gm) {
+    private static int configExternalLobbyServerGet(CommandContext<CommandSourceStack> ctx, RelayRace plugin, GameManager gm) {
         ctx.getSource().getSender().sendMessage(
-            gm.getTranslator().translate("command.config.externallobbyServer.status", gm.getConfig().getExternalLobbyServer()));
+            gm.getTranslator().translate("command.config.externallobbyServer.status", plugin.getRelayConfig().getExternalLobbyServer()));
         return Command.SINGLE_SUCCESS;
     }
 
-    private static int configExternalLobbyServerSet(CommandContext<CommandSourceStack> ctx, GameManager gm) {
+    private static int configExternalLobbyServerSet(CommandContext<CommandSourceStack> ctx, RelayRace plugin, GameManager gm) {
         String server = ctx.getArgument("server", String.class);
         gm.setExternalLobbyServer(server);
         ctx.getSource().getSender().sendMessage(

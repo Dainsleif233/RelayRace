@@ -117,10 +117,6 @@ public class GameManager {
         return plugin.getTranslator();
     }
 
-    public RelayRaceConfig getConfig() {
-        return config;
-    }
-
     public void setLobbyMessenger(LobbyMessenger lobbyMessenger) {
         this.lobbyMessenger = lobbyMessenger;
     }
