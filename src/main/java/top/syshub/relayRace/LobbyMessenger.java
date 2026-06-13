@@ -105,7 +105,7 @@ public class LobbyMessenger implements PluginMessageListener {
         if (detectedServerName != null) return;
         // 如果玩家已离线则跳过
         if (!player.isOnline()) return;
-        plugin.debug("发送 GetServer 查询（经由 " + player.getName() + "）");
+        plugin.debug(plugin.getTranslator().translateRaw("logger.debug.getServerQuery", player.getName()));
         sendBungeeCordMessage(player, out -> out.writeUTF("GetServer"));
     }
 
@@ -127,9 +127,9 @@ public class LobbyMessenger implements PluginMessageListener {
             return CompletableFuture.failedFuture(new IllegalStateException("外部大厅未启用"));
         }
         if (detectedServerName == null) {
-            plugin.getLogger().warning("无法召回 " + playerName + "：尚未检测到本服务器名称。");
-            plugin.debug("lobbyServerName=" + lobbyServerName
-                + ", onlinePlayers=" + Bukkit.getOnlinePlayers().size());
+            plugin.getLogger().warning(plugin.getTranslator().translateRaw("logger.bringBack.serverNameUnknown", playerName));
+            plugin.debug(plugin.getTranslator().translateRaw("logger.debug.bringBackDebug",
+                lobbyServerName, String.valueOf(Bukkit.getOnlinePlayers().size())));
             return CompletableFuture.failedFuture(new IllegalStateException("服务器名称尚未检测"));
         }
 
@@ -140,7 +140,7 @@ public class LobbyMessenger implements PluginMessageListener {
 
         Player sender = findAnyOnlinePlayer();
         if (sender == null) {
-            plugin.getLogger().warning("无法召回 " + playerName + "：没有可用于发送消息的在线玩家");
+            plugin.getLogger().warning(plugin.getTranslator().translateRaw("logger.bringBack.noOnlinePlayer", playerName));
             pendingBringbacks.remove(uuid);
             return CompletableFuture.failedFuture(new IllegalStateException("没有在线玩家"));
         }
@@ -151,13 +151,13 @@ public class LobbyMessenger implements PluginMessageListener {
             out.writeUTF(detectedServerName);
         });
 
-        plugin.getLogger().info("已发送召回请求：" + playerName + " → 服务器 " + detectedServerName);
+        plugin.debug(plugin.getTranslator().translateRaw("logger.debug.requestSent", playerName, detectedServerName));
 
         future.whenComplete((v, ex) -> {
             if (ex instanceof CancellationException) {
                 // 已取消（如游戏结束），无需处理
             } else if (ex != null) {
-                plugin.getLogger().warning("召回 " + playerName + " 超时（" + BRINGBACK_TIMEOUT_SECONDS + " 秒）");
+                plugin.getLogger().warning(plugin.getTranslator().translateRaw("logger.bringBack.timeout", playerName, String.valueOf(BRINGBACK_TIMEOUT_SECONDS)));
                 pendingBringbacks.remove(uuid);
             }
         });
@@ -227,12 +227,12 @@ public class LobbyMessenger implements PluginMessageListener {
             if ("GetServer".equals(subchannel)) {
                 String name = in.readUTF();
                 detectedServerName = name;
-                plugin.debug("GetServer 响应，本服务器名称：" + name);
+                plugin.debug(plugin.getTranslator().translateRaw("logger.debug.getServerResponse", name));
             } else {
-                plugin.debug("未处理子通道：" + subchannel);
+                plugin.debug(plugin.getTranslator().translateRaw("logger.debug.unhandledSubchannel", subchannel));
             }
         } catch (IOException e) {
-            plugin.getLogger().warning("读取 BungeeCord 消息时出错：" + e.getMessage());
+            plugin.getLogger().warning(plugin.getTranslator().translateRaw("logger.bringBack.readError", e.getMessage()));
         }
     }
 
@@ -250,7 +250,7 @@ public class LobbyMessenger implements PluginMessageListener {
             dataOut.flush();
             player.sendPluginMessage(plugin, CHANNEL, byteOut.toByteArray());
         } catch (IOException e) {
-            plugin.getLogger().warning("发送 BungeeCord 消息失败：" + e.getMessage());
+            plugin.getLogger().warning(plugin.getTranslator().translateRaw("logger.bringBack.sendError", e.getMessage()));
         }
     }
 

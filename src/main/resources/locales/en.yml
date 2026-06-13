@@ -37,5 +37,29 @@ game.end.cleared: "<gold>Game Cleared!"
 game.end.over: "<red>Game Over"
 game.end.subtitle: "<white>Total time: {time}"
 game.reminder.next: "<yellow>You are next. {seconds} seconds remaining."
-game.lobby.sent: "<yellow>You have been transferred to the lobby server. Please wait for your turn."
-game.lobby.bringback: "<green>Returning you to the game server. Please stand by."
+
+# --- Console / Debug Logs ---
+
+logger.plugin.enabled: "RelayRace enabled"
+logger.plugin.disabled: "RelayRace disabled"
+
+logger.locale.loaded: "Loaded locale: {locale}"
+logger.locale.fallback: "Locale file not found: locales/{locale}.yml, falling back to zh"
+logger.locale.fallbackFailed: "Fallback locale zh not found!"
+
+logger.config.externalLobbyServerMissing: "external-lobby enabled but external-lobby-server not set."
+logger.config.externalLobbyServerHint: "Please configure external-lobby-server in config.yml (Velocity sub-server name of the lobby)."
+
+logger.bringBack.serverNameUnknown: "Cannot bring back {player}: server name not detected yet."
+logger.bringBack.noOnlinePlayer: "Cannot bring back {player}: no online player available to send message"
+logger.bringBack.timeout: "Bring-back {player} timed out ({seconds}s)"
+logger.bringBack.timeoutSkip: "Bring-back timed out for player {uuid}, skipping."
+logger.bringBack.readError: "Error reading BungeeCord message: {error}"
+logger.bringBack.sendError: "Failed to send BungeeCord message: {error}"
+
+logger.debug.endPortalTrigger: "End portal triggered: {player} cause={cause} location={x},{y},{z}"
+logger.debug.getServerQuery: "Sending GetServer query (via {player})"
+logger.debug.requestSent: "Bring-back request sent: {player} → server {server}"
+logger.debug.getServerResponse: "GetServer response, this server name: {name}"
+logger.debug.bringBackDebug: "lobbyServerName={server}, onlinePlayers={count}"
+logger.debug.unhandledSubchannel: "Unhandled subchannel: {subchannel}"

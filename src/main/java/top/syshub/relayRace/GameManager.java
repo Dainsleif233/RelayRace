@@ -645,7 +645,7 @@ public class GameManager {
         waitingPlayers.removeIf(p -> p.getUniqueId().equals(uuid));
         offlineWaiting.remove(uuid);
         updateWaitingPrefixes();
-        plugin.getLogger().warning("Bring-back timed out for player " + uuid + ", skipping.");
+        plugin.getLogger().warning(plugin.getTranslator().translateRaw("logger.bringBack.timeoutSkip", uuid.toString()));
 
         // Skip any remaining offline players
         skipOfflinePlayers();

@@ -47,7 +47,12 @@ public class Translator {
                 plugin.getLogger().severe("Fallback locale zh not found!");
             }
         }
-        plugin.getLogger().info("Loaded locale: " + currentLocale);
+        // 仅当至少成功加载了一个语言包（primary 或 fallback zh）才能使用翻译器自身
+        if (translations.containsKey("logger.locale.loaded")) {
+            plugin.getLogger().info(this.translateRaw("logger.locale.loaded", currentLocale));
+        } else {
+            plugin.getLogger().info("Loaded locale: " + currentLocale);
+        }
     }
 
     /**

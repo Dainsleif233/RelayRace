@@ -37,5 +37,29 @@ game.end.cleared: "<gold>游戏通关！"
 game.end.over: "<red>游戏结束"
 game.end.subtitle: "<white>总用时: {time}"
 game.reminder.next: "<yellow>即将轮到您上场，剩余 {seconds} 秒。"
-game.lobby.sent: "<yellow>您已被传送至大厅服务器，请耐心等待上场。"
-game.lobby.bringback: "<green>正在将您传送回游戏服务器，请稍候。"
+
+# --- 控制台/调试日志 ---
+
+logger.plugin.enabled: "RelayRace 已启用"
+logger.plugin.disabled: "RelayRace 已禁用"
+
+logger.locale.loaded: "已加载语言：{locale}"
+logger.locale.fallback: "语言文件 locales/{locale}.yml 未找到，回退至 zh"
+logger.locale.fallbackFailed: "回退语言 zh 未找到！"
+
+logger.config.externalLobbyServerMissing: "external-lobby 已启用，但未设置 external-lobby-server。"
+logger.config.externalLobbyServerHint: "请在 config.yml 中配置 external-lobby-server（大厅服务器的 Velocity 子服务器名称）。"
+
+logger.bringBack.serverNameUnknown: "无法召回 {player}：尚未检测到本服务器名称。"
+logger.bringBack.noOnlinePlayer: "无法召回 {player}：没有可用于发送消息的在线玩家"
+logger.bringBack.timeout: "召回 {player} 超时（{seconds} 秒）"
+logger.bringBack.timeoutSkip: "召回玩家 {uuid} 超时，跳过。"
+logger.bringBack.readError: "读取 BungeeCord 消息时出错：{error}"
+logger.bringBack.sendError: "发送 BungeeCord 消息失败：{error}"
+
+logger.debug.endPortalTrigger: "末地传送门触发：{player} 原因={cause} 位置={x},{y},{z}"
+logger.debug.getServerQuery: "发送 GetServer 查询（经由 {player}）"
+logger.debug.requestSent: "已发送召回请求：{player} → 服务器 {server}"
+logger.debug.getServerResponse: "GetServer 响应，本服务器名称：{name}"
+logger.debug.bringBackDebug: "lobbyServerName={server}, onlinePlayers={count}"
+logger.debug.unhandledSubchannel: "未处理子通道：{subchannel}"

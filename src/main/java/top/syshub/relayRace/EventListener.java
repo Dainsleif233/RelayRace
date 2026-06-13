@@ -69,8 +69,11 @@ public class EventListener implements Listener {
         if (event.getCause() != PlayerTeleportEvent.TeleportCause.END_PORTAL
             && event.getCause() != PlayerTeleportEvent.TeleportCause.UNKNOWN) return;
 
-        plugin.debug("末地传送门触发: " + player.getName() + " 原因=" + event.getCause()
-            + " 位置=" + event.getFrom().getBlockX() + "," + event.getFrom().getBlockY() + "," + event.getFrom().getBlockZ());
+        plugin.debug(plugin.getTranslator().translateRaw("logger.debug.endPortalTrigger",
+            player.getName(), String.valueOf(event.getCause()),
+            String.valueOf(event.getFrom().getBlockX()),
+            String.valueOf(event.getFrom().getBlockY()),
+            String.valueOf(event.getFrom().getBlockZ())));
         event.setCancelled(true);
         gameManager.winGame(player, event.getFrom());
     }

@@ -20,6 +20,10 @@ public final class RelayRace extends JavaPlugin {
         LobbyManager lobbyManager = new LobbyManager();
         lobbyManager.createLobbyWorld();
 
+        // Initialize translator early so config loading can use localized messages
+        translator = new Translator(this);
+        translator.loadLocale(getConfig().getString("locale", "zh"));
+
         // Load config
         RelayRaceConfig config = new RelayRaceConfig(this);
         config.load();
@@ -32,9 +36,6 @@ public final class RelayRace extends JavaPlugin {
         gameManager.setLobbyMessenger(lobbyMessenger);
         lobbyMessenger.configure(config.getExternalLobbyServer());
 
-        translator = new Translator(this);
-        translator.loadLocale(getConfig().getString("locale", "zh"));
-
         getServer().getPluginManager().registerEvents(new EventListener(this, gameManager, lobbyManager, lobbyMessenger), this);
         CommandHandler.register(this, gameManager);
 
@@ -43,7 +44,7 @@ public final class RelayRace extends JavaPlugin {
             world.setGameRule(GameRule.DO_IMMEDIATE_RESPAWN, true);
         }
 
-        getLogger().info("RelayRace enabled");
+        getLogger().info(translator.translateRaw("logger.plugin.enabled"));
     }
 
     @Override
@@ -54,7 +55,7 @@ public final class RelayRace extends JavaPlugin {
         if (lobbyMessenger != null) {
             lobbyMessenger.unregister();
         }
-        getLogger().info("RelayRace disabled");
+        getLogger().info(translator != null ? translator.translateRaw("logger.plugin.disabled") : "RelayRace disabled");
     }
 
     public LobbyMessenger getLobbyMessenger() {

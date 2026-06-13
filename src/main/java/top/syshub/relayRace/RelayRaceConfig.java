@@ -44,8 +44,8 @@ public class RelayRaceConfig {
         boolean externalLobby = plugin.getConfig().getBoolean("external-lobby");
         String externalLobbyServer = plugin.getConfig().getString("external-lobby-server", "");
         if (externalLobby && externalLobbyServer.isEmpty()) {
-            plugin.getLogger().warning("external-lobby 已启用，但未设置 external-lobby-server。");
-            plugin.getLogger().warning("请在 config.yml 中配置 external-lobby-server（大厅服务器的 Velocity 子服务器名称）。");
+            plugin.getLogger().warning(plugin.getTranslator().translateRaw("logger.config.externalLobbyServerMissing"));
+            plugin.getLogger().warning(plugin.getTranslator().translateRaw("logger.config.externalLobbyServerHint"));
         }
     }
 
@@ -120,8 +120,8 @@ public class RelayRaceConfig {
         plugin.getConfig().set("external-lobby", value);
         saveAsync();
         if (value && getExternalLobbyServer().isEmpty()) {
-            plugin.getLogger().warning("external-lobby 已启用，但未设置 external-lobby-server。");
-            plugin.getLogger().warning("请在 config.yml 中配置 external-lobby-server（大厅服务器的 Velocity 子服务器名称）。");
+            plugin.getLogger().warning(plugin.getTranslator().translateRaw("logger.config.externalLobbyServerMissing"));
+            plugin.getLogger().warning(plugin.getTranslator().translateRaw("logger.config.externalLobbyServerHint"));
         }
     }
 
@@ -129,8 +129,8 @@ public class RelayRaceConfig {
         plugin.getConfig().set("external-lobby-server", server);
         saveAsync();
         if (isExternalLobby() && server.isEmpty()) {
-            plugin.getLogger().warning("external-lobby 已启用，但未设置 external-lobby-server。");
-            plugin.getLogger().warning("请在 config.yml 中配置 external-lobby-server（大厅服务器的 Velocity 子服务器名称）。");
+            plugin.getLogger().warning(plugin.getTranslator().translateRaw("logger.config.externalLobbyServerMissing"));
+            plugin.getLogger().warning(plugin.getTranslator().translateRaw("logger.config.externalLobbyServerHint"));
         }
     }
 
