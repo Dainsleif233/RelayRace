@@ -300,8 +300,21 @@ public class GameManager {
             assignTeam(player, yellowTeam);
             updateWaitingPrefixes();
             addPlayerToBossBar(player);
-            lobbyManager.teleportToLobby(player);
-            player.setGameMode(GameMode.ADVENTURE);
+
+            // If this player is being recalled via external lobby bring-back,
+            // skip teleportToLobby — activateNextPlayer (run next tick via
+            // whenCompleteAsync) will apply the snapshot and teleport them
+            // to the correct location. Teleporting to the lobby first would
+            // cause a visual flash and risks the player staying there if the
+            // async callback fails.
+            boolean isBeingRecalled = pendingRotation != null
+                && pendingRotation.playerUuid.equals(player.getUniqueId());
+            if (isBeingRecalled) {
+                player.setGameMode(GameMode.SURVIVAL);
+            } else {
+                lobbyManager.teleportToLobby(player);
+                player.setGameMode(GameMode.ADVENTURE);
+            }
 
             // Notify messenger that a bring-back player has arrived
             if (lobbyMessenger != null) {
@@ -561,15 +574,15 @@ public class GameManager {
                     // (prevents races with endGame/removePlayer/disable)
                     if (pendingRotation != pr) return;
 
-                    pendingRotation = null;
-
                     if (ex instanceof CancellationException) {
                         // cancelled externally (e.g. game ended) — nothing more to do
+                        pendingRotation = null;
                         return;
                     }
 
                     if (ex != null || pr.cancelled) {
                         // 超时、立即失败或已取消 — 跳过该玩家
+                        pendingRotation = null;
                         waitingPlayers.removeIf(p -> p.getUniqueId().equals(uuid));
                         offlineWaiting.remove(uuid);
                         updateWaitingPrefixes();
@@ -578,6 +591,8 @@ public class GameManager {
                             endGame(false);
                         }
                     } else {
+                        // NOTE: completeRotationAfterBringback will clear
+                        // pendingRotation internally — don't null it here.
                         completeRotationAfterBringback(uuid);
                     }
                 }, task -> Bukkit.getGlobalRegionScheduler().run(plugin, _ -> task.run()));

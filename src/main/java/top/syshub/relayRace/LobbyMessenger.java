@@ -31,7 +31,7 @@ import java.util.concurrent.TimeUnit;
 public class LobbyMessenger implements PluginMessageListener {
 
     private static final String CHANNEL = "BungeeCord";
-    private static final long BRINGBACK_TIMEOUT_SECONDS = 30;
+    private static final long BRINGBACK_TIMEOUT_SECONDS = 3;
 
     private final RelayRace plugin;
     private final GameManager gameManager;
