@@ -9,7 +9,6 @@ java {
 }
 
 repositories {
-    // 重庆大学镜像（有时不可用）
     // maven("https://mirrors.cqu.edu.cn/maven/")
     // maven("https://mirrors.cqu.edu.cn/maven/papermc/")
     maven("https://repo.papermc.io/repository/maven-public/")
