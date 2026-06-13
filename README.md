@@ -21,6 +21,8 @@
 | `/rr config freeze [true/false]` | 查看或设置冻结冷却（默认开启）          |
 | `/rr config debug [true/false]`  | 查看或设置调试模式                |
 | `/rr config locales [<语言>]`      | 查看或设置语言（zh / en）         |
+| `/rr config externallobby [true/false]` | 查看或设置外部大厅模式（默认关闭） |
+| `/rr config externallobby-server <名称>` | 查看或设置外部大厅服务器名 |
 
 ## 游戏机制
 
@@ -33,12 +35,24 @@
 `plugins/RelayRace/config.yml`：
 
 ```yaml
-locale: zh # 语言（zh / en）
-time: 300       # 每轮时长（秒）
-loop: true      # 循环模式
-freeze: true    # 冻结冷却（开始/切换时冻结倒计时）
-debug: false    # 调试日志
+locale: zh               # 语言（zh / en）
+time: 300                # 每轮时长（秒）
+loop: true               # 循环模式
+freeze: true             # 冻结冷却（开始/切换时冻结倒计时）
+debug: false             # 调试日志
+external-lobby: false    # 外部大厅模式
+external-lobby-server: "" # 外部大厅服务器名（Velocity 子服务器名）
 ```
+
+## 外部大厅
+
+启用外部大厅时（`external-lobby: true`），等待玩家会被发送到 Velocity 代理下的另一个子服务器（如主城服务器），而不是停留在游戏服务器的本地大厅世界。需要：
+
+- 在 Velocity 的 `velocity.toml` 中启用 BungeeCord 插件消息转发
+- 正确配置 `external-lobby-server`（大厅服务器名）
+- 服务器名称由第一名加入的玩家自动检测，无需手动配置
+- 当前回合时间到达 100%、60%、20%、10s 时，下一个等待的玩家会收到聊天提醒
+- 轮到外部大厅的玩家时，系统会自动将其召回游戏服务器。若 30 秒内无法召回，则跳过该玩家
 
 ## 许可证
 

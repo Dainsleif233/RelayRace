@@ -21,6 +21,8 @@ All commands require the `relayrace.command` permission (default OP). Root comma
 | `/rr config freeze [true/false]` | View or set freeze countdown (default on)                    |
 | `/rr config debug [true/false]`  | View or set debug mode                                       |
 | `/rr config locales [<locale>]`  | View or set locale (zh / en)                                 |
+| `/rr config externallobby [true/false]` | View or set external lobby mode (default off)               |
+| `/rr config externallobby-server <name>` | View or set the external lobby server name                  |
 
 ## Game Mechanics
 
@@ -33,12 +35,24 @@ All commands require the `relayrace.command` permission (default OP). Root comma
 `plugins/RelayRace/config.yml`:
 
 ```yaml
-locale: zh # locale (zh / en)
-time: 300       # turn duration in seconds
-loop: true      # loop mode
-freeze: true    # freeze countdown on start/switch
-debug: false    # debug logging
+locale: zh               # locale (zh / en)
+time: 300                # turn duration in seconds
+loop: true               # loop mode
+freeze: true             # freeze countdown on start/switch
+debug: false             # debug logging
+external-lobby: false    # external lobby mode
+external-lobby-server: "" # external lobby server (Velocity sub-server name)
 ```
+
+## External Lobby
+
+When external lobby mode is enabled (`external-lobby: true`), waiting players are sent to another server behind the Velocity proxy (e.g. a hub server) instead of remaining on the game server's local lobby world. Requires:
+
+- BungeeCord plugin message forwarding enabled in `velocity.toml`
+- `external-lobby-server` configured to the lobby server's name
+- Server name is auto-detected via the first player to join (no manual `server-name` config needed)
+- Chat reminders are sent to the next waiting player at 100%, 60%, 20%, 10s remaining of the current turn
+- When it's an external lobby player's turn, they are automatically recalled to the game server. If unreachable after 30 seconds, they are skipped
 
 ## License
 

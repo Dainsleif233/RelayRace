@@ -46,6 +46,14 @@ public final class CommandHandler {
                     .executes(ctx -> configFreezeGet(ctx, gameManager))
                     .then(Commands.argument("enable", BoolArgumentType.bool())
                         .executes(ctx -> configFreezeSet(ctx, gameManager))))
+                .then(Commands.literal("externallobby")
+                    .executes(ctx -> configExternalLobbyGet(ctx, gameManager))
+                    .then(Commands.argument("enable", BoolArgumentType.bool())
+                        .executes(ctx -> configExternalLobbySet(ctx, gameManager))))
+                .then(Commands.literal("externallobby-server")
+                    .executes(ctx -> configExternalLobbyServerGet(ctx, gameManager))
+                    .then(Commands.argument("server", StringArgumentType.word())
+                        .executes(ctx -> configExternalLobbyServerSet(ctx, gameManager))))
                 .then(Commands.literal("locales")
                     .executes(ctx -> configLocalesGet(ctx, gameManager))
                     .then(Commands.argument("locale", StringArgumentType.word())
@@ -163,6 +171,11 @@ public final class CommandHandler {
                 gm.getTranslator().translate("command.next.none"));
             return Command.SINGLE_SUCCESS;
         }
+        if (gm.isPendingRotation()) {
+            ctx.getSource().getSender().sendMessage(
+                gm.getTranslator().translate("command.next.pending"));
+            return Command.SINGLE_SUCCESS;
+        }
         gm.switchToNextPlayer();
         ctx.getSource().getSender().sendMessage(
             gm.getTranslator().translate("command.next.success"));
@@ -245,6 +258,34 @@ public final class CommandHandler {
         gm.setFreeze(enabled);
         ctx.getSource().getSender().sendMessage(
             gm.getTranslator().translate("command.config.freeze.status", String.valueOf(enabled)));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int configExternalLobbyGet(CommandContext<CommandSourceStack> ctx, GameManager gm) {
+        ctx.getSource().getSender().sendMessage(
+            gm.getTranslator().translate("command.config.externallobby.status", String.valueOf(gm.isExternalLobby())));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int configExternalLobbySet(CommandContext<CommandSourceStack> ctx, GameManager gm) {
+        boolean enabled = ctx.getArgument("enable", Boolean.class);
+        gm.setExternalLobby(enabled);
+        ctx.getSource().getSender().sendMessage(
+            gm.getTranslator().translate("command.config.externallobby.set", String.valueOf(enabled)));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int configExternalLobbyServerGet(CommandContext<CommandSourceStack> ctx, GameManager gm) {
+        ctx.getSource().getSender().sendMessage(
+            gm.getTranslator().translate("command.config.externallobbyServer.status", gm.getExternalLobbyServer()));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int configExternalLobbyServerSet(CommandContext<CommandSourceStack> ctx, GameManager gm) {
+        String server = ctx.getArgument("server", String.class);
+        gm.setExternalLobbyServer(server);
+        ctx.getSource().getSender().sendMessage(
+            gm.getTranslator().translate("command.config.externallobbyServer.set", server));
         return Command.SINGLE_SUCCESS;
     }
 }

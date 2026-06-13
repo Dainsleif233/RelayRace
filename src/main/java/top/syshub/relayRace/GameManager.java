@@ -37,6 +37,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.CompletableFuture;
 
 public class GameManager {
 
@@ -65,12 +67,47 @@ public class GameManager {
     private boolean loop;
     private boolean freeze = true;
 
+    private LobbyMessenger lobbyMessenger;
+
+    /** Holds state for an asynchronous player rotation (external lobby bring-back). */
+    private PendingRotation pendingRotation;
+
+    /** Last second at which a waiting reminder was sent. Used in tick(). */
+    private int lastReminderCheck = -1;
+
     // Pet ownership reverse index: player UUID → owned tameable entity UUIDs.
     // Populated by EntityTameEvent and synced with world scans during player switch.
     private final Map<UUID, Set<UUID>> petOwnershipIndex = new HashMap<>();
     // Deferred pet transfers: entity UUID → new owner UUID, for entities in unloaded chunks.
     // Applied when the chunk loads via EntitiesLoadEvent.
     private final Map<UUID, UUID> pendingPetTransfers = new HashMap<>();
+
+    /**
+     * Holds data needed to complete a player rotation that was deferred while waiting
+     * for a player to be brought back from the external lobby.
+     */
+    private static class PendingRotation {
+        final UUID playerUuid;
+        final PlayerData snapshot;
+        final Player oldActive;
+        final Entity oldVehicle;
+        final List<Entity> oldPassengers;
+        final Entity oldShoulderLeft;
+        final Entity oldShoulderRight;
+        volatile boolean cancelled;
+
+        PendingRotation(UUID playerUuid, PlayerData snapshot, Player oldActive,
+                        Entity oldVehicle, List<Entity> oldPassengers,
+                        Entity oldShoulderLeft, Entity oldShoulderRight) {
+            this.playerUuid = playerUuid;
+            this.snapshot = snapshot;
+            this.oldActive = oldActive;
+            this.oldVehicle = oldVehicle;
+            this.oldPassengers = oldPassengers;
+            this.oldShoulderLeft = oldShoulderLeft;
+            this.oldShoulderRight = oldShoulderRight;
+        }
+    }
 
     public GameManager(RelayRace plugin, LobbyManager lobbyManager) {
         this.plugin = plugin;
@@ -82,6 +119,15 @@ public class GameManager {
         return plugin.getTranslator();
     }
 
+    public void setLobbyMessenger(LobbyMessenger lobbyMessenger) {
+        this.lobbyMessenger = lobbyMessenger;
+    }
+
+    /** @return the currently active player, or null if the game is not running. */
+    public Player getActivePlayer() {
+        return activePlayer;
+    }
+
     // --- Config ---
 
     public void loadConfig() {
@@ -90,12 +136,22 @@ public class GameManager {
         plugin.getConfig().addDefault("debug", false);
         plugin.getConfig().addDefault("loop", true);
         plugin.getConfig().addDefault("freeze", true);
+        plugin.getConfig().addDefault("external-lobby", false);
+        plugin.getConfig().addDefault("external-lobby-server", "");
         plugin.getConfig().options().copyDefaults(true);
         saveConfigAsync();
         turnDuration = plugin.getConfig().getInt("time") * 20;
         debug = plugin.getConfig().getBoolean("debug");
         loop = plugin.getConfig().getBoolean("loop");
         freeze = plugin.getConfig().getBoolean("freeze");
+        String externalLobbyServer = plugin.getConfig().getString("external-lobby-server", "");
+        if (plugin.getConfig().getBoolean("external-lobby") && externalLobbyServer.isEmpty()) {
+            plugin.getLogger().warning("external-lobby 已启用，但未设置 external-lobby-server。");
+            plugin.getLogger().warning("请在 config.yml 中配置 external-lobby-server（大厅服务器的 Velocity 子服务器名称）。");
+        }
+        if (lobbyMessenger != null) {
+            lobbyMessenger.configure(externalLobbyServer);
+        }
     }
 
     public int getPlaytimeSeconds() {
@@ -163,6 +219,38 @@ public class GameManager {
     public void setLocale(String locale) {
         plugin.getConfig().set("locale", locale);
         saveConfigAsync();
+    }
+
+    public boolean isExternalLobby() {
+        return plugin.getConfig().getBoolean("external-lobby");
+    }
+
+    public void setExternalLobby(boolean value) {
+        plugin.getConfig().set("external-lobby", value);
+        saveConfigAsync();
+        if (value && getExternalLobbyServer().isEmpty()) {
+            plugin.getLogger().warning("external-lobby 已启用，但未设置 external-lobby-server。");
+            plugin.getLogger().warning("请在 config.yml 中配置 external-lobby-server（大厅服务器的 Velocity 子服务器名称）。");
+        }
+        if (lobbyMessenger != null) {
+            lobbyMessenger.configure(getExternalLobbyServer());
+        }
+    }
+
+    public String getExternalLobbyServer() {
+        return plugin.getConfig().getString("external-lobby-server", "");
+    }
+
+    public void setExternalLobbyServer(String server) {
+        plugin.getConfig().set("external-lobby-server", server);
+        saveConfigAsync();
+        if (isExternalLobby() && server.isEmpty()) {
+            plugin.getLogger().warning("external-lobby 已启用，但未设置 external-lobby-server。");
+            plugin.getLogger().warning("请在 config.yml 中配置 external-lobby-server（大厅服务器的 Velocity 子服务器名称）。");
+        }
+        if (lobbyMessenger != null) {
+            lobbyMessenger.configure(server);
+        }
     }
 
     private void saveConfigAsync() {
@@ -300,6 +388,11 @@ public class GameManager {
             addPlayerToBossBar(player);
             lobbyManager.teleportToLobby(player);
             player.setGameMode(GameMode.ADVENTURE);
+
+            // Notify messenger that a bring-back player has arrived
+            if (lobbyMessenger != null) {
+                lobbyMessenger.notifyArrived(player.getUniqueId());
+            }
             return;
         }
 
@@ -481,8 +574,14 @@ public class GameManager {
         return true;
     }
 
+    /** @return true if a deferred player rotation (external lobby bring-back) is in progress. */
+    public boolean isPendingRotation() {
+        return pendingRotation != null;
+    }
+
     public void switchToNextPlayer() {
         if (!isRunning() || activePlayer == null) return;
+        if (pendingRotation != null) return; // don't start a second rotation while one is pending
 
         // Cancel any ongoing countdown (e.g. from startGame or a previous switch)
         cancelCountdown();
@@ -512,8 +611,60 @@ public class GameManager {
 
         updateWaitingPrefixes();
 
-        // Skip offline players at the front of the queue
+        // Skip offline players at the front, or attempt bring-back for external lobby
         while (!waitingPlayers.isEmpty() && offlineWaiting.contains(waitingPlayers.getFirst().getUniqueId())) {
+            if (lobbyMessenger != null && isExternalLobby()) {
+                // Attempt to bring this player back from the external lobby
+                UUID uuid = waitingPlayers.getFirst().getUniqueId();
+                String name = waitingPlayers.getFirst().getName();
+
+                PendingRotation pr = new PendingRotation(uuid, snapshot, oldActive,
+                    oldVehicle, oldPassengers, oldShoulderLeft, oldShoulderRight);
+                pendingRotation = pr;
+
+                CompletableFuture<Void> future = lobbyMessenger.bringBack(uuid, name);
+
+                // Handle immediate failures synchronously so pendingRotation doesn't leak
+                if (future.isCompletedExceptionally()) {
+                    pendingRotation = null;
+                    waitingPlayers.removeIf(p -> p.getUniqueId().equals(uuid));
+                    offlineWaiting.remove(uuid);
+                    updateWaitingPrefixes();
+                    skipOfflinePlayers();
+                    if (waitingPlayers.isEmpty() && activePlayer == null) {
+                        endGame(false);
+                    }
+                    return;
+                }
+
+                future.whenCompleteAsync((v, ex) -> {
+                    // Only handle if we still own this pendingRotation instance
+                    // (prevents races with endGame/removePlayer/disable)
+                    if (pendingRotation != pr) return;
+
+                    pendingRotation = null;
+
+                    if (ex instanceof CancellationException) {
+                        // cancelled externally (e.g. game ended) — nothing more to do
+                        return;
+                    }
+
+                    if (ex != null || pr.cancelled) {
+                        // 超时、立即失败或已取消 — 跳过该玩家
+                        waitingPlayers.removeIf(p -> p.getUniqueId().equals(uuid));
+                        offlineWaiting.remove(uuid);
+                        updateWaitingPrefixes();
+                        skipOfflinePlayers();
+                        if (waitingPlayers.isEmpty() && activePlayer == null) {
+                            endGame(false);
+                        }
+                    } else {
+                        completeRotationAfterBringback(uuid);
+                    }
+                }, task -> Bukkit.getGlobalRegionScheduler().run(plugin, _ -> task.run()));
+                return;
+            }
+            // Normal mode: skip offline players
             Player skipped = waitingPlayers.removeFirst();
             offlineWaiting.remove(skipped.getUniqueId());
             updateWaitingPrefixes();
@@ -526,8 +677,83 @@ public class GameManager {
             return;
         }
 
-        // Pop next player
+        // Pop next player and complete rotation synchronously
         Player next = waitingPlayers.removeFirst();
+        activateNextPlayer(snapshot, oldActive, next,
+            oldVehicle, oldPassengers, oldShoulderLeft, oldShoulderRight);
+    }
+
+    /**
+     * Complete a deferred player rotation after the target has arrived from the
+     * external lobby. Called from the LobbyMessenger bring-back callback.
+     */
+    public void completeRotationAfterBringback(UUID arrivedUuid) {
+        if (pendingRotation == null || pendingRotation.cancelled) return;
+        if (!pendingRotation.playerUuid.equals(arrivedUuid)) return;
+
+        PendingRotation pr = pendingRotation;
+        pendingRotation = null;
+
+        // Find the player in the waiting list (handlePlayerJoin restored the reference)
+        Player next = null;
+        for (int i = 0; i < waitingPlayers.size(); i++) {
+            if (waitingPlayers.get(i).getUniqueId().equals(arrivedUuid)) {
+                next = waitingPlayers.remove(i);
+                break;
+            }
+        }
+        if (next == null) {
+            // Player disappeared — try next
+            skipOfflinePlayers();
+            if (waitingPlayers.isEmpty() && activePlayer == null) {
+                endGame(false);
+            }
+            return;
+        }
+
+        activateNextPlayer(pr.snapshot, pr.oldActive, next,
+            pr.oldVehicle, pr.oldPassengers, pr.oldShoulderLeft, pr.oldShoulderRight);
+    }
+
+    /**
+     * Called by LobbyMessenger when a bring-back times out.
+     * Skips the timed-out player and tries the next in queue.
+     */
+    public void onBringBackTimeout(UUID uuid) {
+        if (pendingRotation == null || !pendingRotation.playerUuid.equals(uuid)) return;
+
+        PendingRotation pr = pendingRotation;
+        pendingRotation = null;
+
+        // Remove the timed-out player from queue
+        waitingPlayers.removeIf(p -> p.getUniqueId().equals(uuid));
+        offlineWaiting.remove(uuid);
+        updateWaitingPrefixes();
+        plugin.getLogger().warning("Bring-back timed out for player " + uuid + ", skipping.");
+
+        // Skip any remaining offline players
+        skipOfflinePlayers();
+
+        if (waitingPlayers.isEmpty()) {
+            if (activePlayer == null) {
+                endGame(false);
+            }
+            return;
+        }
+
+        // Activate the next available player
+        Player next = waitingPlayers.removeFirst();
+        activateNextPlayer(pr.snapshot, pr.oldActive, next,
+            pr.oldVehicle, pr.oldPassengers, pr.oldShoulderLeft, pr.oldShoulderRight);
+    }
+
+    /**
+     * Activate a player as the new active player, applying the snapshot and all
+     * entity transfers. Used by both synchronous switching and async bring-back.
+     */
+    private void activateNextPlayer(PlayerData snapshot, Player oldActive, Player next,
+                                    Entity oldVehicle, List<Entity> oldPassengers,
+                                    Entity oldShoulderLeft, Entity oldShoulderRight) {
         activePlayer = next;
 
         // Apply snapshot
@@ -556,6 +782,7 @@ public class GameManager {
 
         updateWaitingPrefixes();
         remainingTicks = turnDuration;
+        lastReminderCheck = -1; // reset reminder tracking for the new turn
         updateBossBar();
 
         // Freeze + 10s countdown before the new player can move (skipped when freeze is disabled)
@@ -571,12 +798,30 @@ public class GameManager {
         }
     }
 
+    /** Skip all offline players at the front of the waiting queue. */
+    private void skipOfflinePlayers() {
+        while (!waitingPlayers.isEmpty() && offlineWaiting.contains(waitingPlayers.getFirst().getUniqueId())) {
+            Player skipped = waitingPlayers.removeFirst();
+            offlineWaiting.remove(skipped.getUniqueId());
+            updateWaitingPrefixes();
+        }
+    }
+
     public void endGame(boolean wonByPortal) {
         if (gameState != GameState.RUNNING) return;
         gameState = GameState.IDLE;
 
         cancelCountdown();
         stopTimer();
+
+        // Cancel any pending bring-back rotation
+        if (pendingRotation != null) {
+            pendingRotation.cancelled = true;
+            pendingRotation = null;
+        }
+        if (lobbyMessenger != null) {
+            lobbyMessenger.cancelAllPending();
+        }
 
         try {
             Bukkit.getServerTickManager().setFrozen(true);
@@ -767,11 +1012,58 @@ public class GameManager {
 
         if (remainingTicks % 20 == 0) {
             updateBossBar();
+            checkWaitingReminders();
         }
 
         if (remainingTicks <= 0) {
+            // If a bring-back is pending, don't start another switch
+            if (pendingRotation != null) return;
             switchToNextPlayer();
         }
+    }
+
+    /**
+     * Send waiting reminders to the next player in queue at specific thresholds
+     * (100%, 60%, 20%, 10s remaining of the current turn).
+     */
+    private void checkWaitingReminders() {
+        if (waitingPlayers.isEmpty()) return;
+
+        int currentSec = remainingTicks / 20;
+        if (currentSec == lastReminderCheck) return;
+        lastReminderCheck = currentSec;
+
+        int totalSec = turnDuration / 20;
+        int[] checkpoints;
+        if (totalSec > 10) {
+            checkpoints = new int[]{totalSec, (int) (totalSec * 0.6), (int) (totalSec * 0.2), 10};
+        } else {
+            checkpoints = new int[]{totalSec, 10};
+        }
+
+        for (int cp : checkpoints) {
+            if (currentSec == cp) {
+                sendReminderToNext(currentSec);
+                break;
+            }
+        }
+    }
+
+    /**
+     * Send a chat reminder to the first player in the waiting queue.
+     * If they are on the external lobby, send via BungeeCord Message subchannel.
+     */
+    private void sendReminderToNext(int secondsRemaining) {
+        Player next = waitingPlayers.getFirst();
+        Component message = plugin.getTranslator().translate("game.reminder.next",
+            String.valueOf(secondsRemaining));
+
+        if (next.isOnline()) {
+            next.sendMessage(message);
+        } else if (lobbyMessenger != null && isExternalLobby()) {
+            lobbyMessenger.sendMessage(next, message);
+        }
+        // If fully offline (not on lobby server), the message is lost — acceptable.
     }
 
     // --- Player removal (disconnect) ---
@@ -779,6 +1071,28 @@ public class GameManager {
     public void removePlayer(Player player) {
         cancelCountdown();
         removePlayerFromBossBar(player);
+
+        // Cancel pending bring-back for this player.
+        // Handles both cases: the bring-back target disconnected, *or* the old active player
+        // (whose snapshot is held in the rotation) disconnected during the 30s wait.
+        if (pendingRotation != null) {
+            boolean matchesTarget = pendingRotation.playerUuid.equals(player.getUniqueId());
+            boolean matchesOldActive = pendingRotation.oldActive != null
+                && pendingRotation.oldActive.equals(player);
+            if (matchesTarget || matchesOldActive) {
+                UUID targetUuid = pendingRotation.playerUuid;
+                pendingRotation.cancelled = true;
+                pendingRotation = null;
+                // Cancel the messenger's pending future for the *target* (not the disconnecting player)
+                if (lobbyMessenger != null) {
+                    lobbyMessenger.cancelBringBack(targetUuid);
+                }
+            }
+        }
+        if (lobbyMessenger != null) {
+            lobbyMessenger.cancelBringBack(player.getUniqueId());
+        }
+
         if (isActivePlayer(player)) {
             // Active player disconnected — same as /rr next logic
             PlayerData snapshot = PlayerData.capture(player);
@@ -786,29 +1100,14 @@ public class GameManager {
             // Save mount/passenger references before disconnect
             Entity vehicle = player.getVehicle();
             List<Entity> passengers = new ArrayList<>(player.getPassengers());
+            // No shoulder entity save — the player is gone
 
             activePlayer = null;
+            skipOfflinePlayers();
             if (!waitingPlayers.isEmpty()) {
-                activePlayer = waitingPlayers.removeFirst();
-                snapshot.apply(activePlayer);
-                redirectMobAggro(player, activePlayer);
-                transferPets(player, activePlayer);
-
-                // Transfer mount/passenger to the new player
-                if (vehicle != null) {
-                    vehicle.addPassenger(activePlayer);
-                }
-                for (Entity p : passengers) {
-                    activePlayer.addPassenger(p);
-                }
-
-                activePlayer.setGameMode(GameMode.SURVIVAL);
-                activePlayer.setHasSeenWinScreen(true);
-                assignTeam(activePlayer, greenTeam);
-                applyActiveDisplay(activePlayer);
-                updateWaitingPrefixes();
-                remainingTicks = turnDuration;
-                updateBossBar();
+                Player next = waitingPlayers.removeFirst();
+                activateNextPlayer(snapshot, player, next,
+                    vehicle, passengers, null, null);
             } else {
                 endGame(false);
             }
@@ -832,6 +1131,10 @@ public class GameManager {
     // --- Cleanup ---
 
     public void disable() {
+        if (pendingRotation != null) {
+            pendingRotation.cancelled = true;
+            pendingRotation = null;
+        }
         cancelCountdown();
         stopTimer();
         if (bossBar != null) {

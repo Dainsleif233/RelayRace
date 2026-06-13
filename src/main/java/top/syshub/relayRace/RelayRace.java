@@ -8,6 +8,7 @@ public final class RelayRace extends JavaPlugin {
 
     private Translator translator;
     private GameManager gameManager;
+    private LobbyMessenger lobbyMessenger;
 
     public Translator getTranslator() {
         return translator;
@@ -20,12 +21,18 @@ public final class RelayRace extends JavaPlugin {
         lobbyManager.createLobbyWorld();
 
         gameManager = new GameManager(this, lobbyManager);
+
+        // Create and wire LobbyMessenger
+        lobbyMessenger = new LobbyMessenger(this, gameManager);
+        lobbyMessenger.register();
+        gameManager.setLobbyMessenger(lobbyMessenger);
+
         gameManager.loadConfig();
 
         translator = new Translator(this);
         translator.loadLocale(getConfig().getString("locale", "zh"));
 
-        getServer().getPluginManager().registerEvents(new EventListener(gameManager, lobbyManager), this);
+        getServer().getPluginManager().registerEvents(new EventListener(this, gameManager, lobbyManager, lobbyMessenger), this);
         CommandHandler.register(this, gameManager);
 
         // Enable immediate respawn in all loaded worlds so dead players skip the death screen
@@ -41,6 +48,23 @@ public final class RelayRace extends JavaPlugin {
         if (gameManager != null) {
             gameManager.disable();
         }
+        if (lobbyMessenger != null) {
+            lobbyMessenger.unregister();
+        }
         getLogger().info("RelayRace disabled");
+    }
+
+    public LobbyMessenger getLobbyMessenger() {
+        return lobbyMessenger;
+    }
+
+    /**
+     * 仅在 debug 模式启用时输出日志。
+     * 由 EventListener、LobbyMessenger 等类共用。
+     */
+    public void debug(String msg) {
+        if (gameManager != null && gameManager.isDebug()) {
+            getLogger().warning("[DEBUG] " + msg);
+        }
     }
 }

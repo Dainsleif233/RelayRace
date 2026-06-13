@@ -17,17 +17,26 @@ import org.bukkit.event.world.EntitiesLoadEvent;
 
 public class EventListener implements Listener {
 
+    private final RelayRace plugin;
     private final GameManager gameManager;
     private final LobbyManager lobbyManager;
+    private final LobbyMessenger lobbyMessenger;
 
-    public EventListener(GameManager gameManager, LobbyManager lobbyManager) {
+    public EventListener(RelayRace plugin, GameManager gameManager, LobbyManager lobbyManager, LobbyMessenger lobbyMessenger) {
+        this.plugin = plugin;
         this.gameManager = gameManager;
         this.lobbyManager = lobbyManager;
+        this.lobbyMessenger = lobbyMessenger;
     }
 
     @EventHandler(priority = EventPriority.LOW)
     public void onPlayerJoin(PlayerJoinEvent event) {
-        gameManager.handlePlayerJoin(event.getPlayer());
+        Player player = event.getPlayer();
+        gameManager.handlePlayerJoin(player);
+        // Attempt to auto-detect server name (runs once on the first join)
+        lobbyMessenger.tryAutoDetect(player);
+        // Notify messenger so pending bring-backs can complete
+        lobbyMessenger.notifyArrived(player.getUniqueId());
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
@@ -60,6 +69,8 @@ public class EventListener implements Listener {
         if (event.getCause() != PlayerTeleportEvent.TeleportCause.END_PORTAL
             && event.getCause() != PlayerTeleportEvent.TeleportCause.UNKNOWN) return;
 
+        plugin.debug("末地传送门触发: " + player.getName() + " 原因=" + event.getCause()
+            + " 位置=" + event.getFrom().getBlockX() + "," + event.getFrom().getBlockY() + "," + event.getFrom().getBlockZ());
         event.setCancelled(true);
         gameManager.winGame(player, event.getFrom());
     }
