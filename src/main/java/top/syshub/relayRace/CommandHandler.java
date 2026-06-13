@@ -76,7 +76,7 @@ public final class CommandHandler {
     }
 
     private static int configPlaytimeGet(CommandContext<CommandSourceStack> ctx, GameManager gm) {
-        int seconds = gm.getPlaytimeSeconds();
+        int seconds = gm.getConfig().getPlaytimeSeconds();
         ctx.getSource().getSender().sendMessage(
             gm.getTranslator().translate("command.config.playtime.get", String.valueOf(seconds)));
         return Command.SINGLE_SUCCESS;
@@ -196,13 +196,13 @@ public final class CommandHandler {
 
     private static int configDebugGet(CommandContext<CommandSourceStack> ctx, GameManager gm) {
         ctx.getSource().getSender().sendMessage(
-            gm.getTranslator().translate("command.config.debug.status", String.valueOf(gm.isDebug())));
+            gm.getTranslator().translate("command.config.debug.status", String.valueOf(gm.getConfig().isDebug())));
         return Command.SINGLE_SUCCESS;
     }
 
     private static int configDebugSet(CommandContext<CommandSourceStack> ctx, GameManager gm) {
         boolean enabled = ctx.getArgument("enable", Boolean.class);
-        gm.setDebug(enabled);
+        gm.getConfig().setDebug(enabled);
         ctx.getSource().getSender().sendMessage(
             gm.getTranslator().translate("command.config.debug.status", String.valueOf(enabled)));
         return Command.SINGLE_SUCCESS;
@@ -210,13 +210,13 @@ public final class CommandHandler {
 
     private static int configLoopGet(CommandContext<CommandSourceStack> ctx, GameManager gm) {
         ctx.getSource().getSender().sendMessage(
-            gm.getTranslator().translate("command.config.loop.status", String.valueOf(gm.isLoop())));
+            gm.getTranslator().translate("command.config.loop.status", String.valueOf(gm.getConfig().isLoop())));
         return Command.SINGLE_SUCCESS;
     }
 
     private static int configLoopSet(CommandContext<CommandSourceStack> ctx, GameManager gm) {
         boolean enabled = ctx.getArgument("enable", Boolean.class);
-        gm.setLoop(enabled);
+        gm.getConfig().setLoop(enabled);
         ctx.getSource().getSender().sendMessage(
             gm.getTranslator().translate("command.config.loop.status", String.valueOf(enabled)));
         return Command.SINGLE_SUCCESS;
@@ -240,7 +240,7 @@ public final class CommandHandler {
             return Command.SINGLE_SUCCESS;
         }
 
-        gm.setLocale(locale);
+        gm.getConfig().setLocale(locale);
         gm.getTranslator().loadLocale(locale);
         ctx.getSource().getSender().sendMessage(
             gm.getTranslator().translate("command.config.locales.changed", locale));
@@ -249,13 +249,13 @@ public final class CommandHandler {
 
     private static int configFreezeGet(CommandContext<CommandSourceStack> ctx, GameManager gm) {
         ctx.getSource().getSender().sendMessage(
-            gm.getTranslator().translate("command.config.freeze.status", String.valueOf(gm.isFreeze())));
+            gm.getTranslator().translate("command.config.freeze.status", String.valueOf(gm.getConfig().isFreeze())));
         return Command.SINGLE_SUCCESS;
     }
 
     private static int configFreezeSet(CommandContext<CommandSourceStack> ctx, GameManager gm) {
         boolean enabled = ctx.getArgument("enable", Boolean.class);
-        gm.setFreeze(enabled);
+        gm.getConfig().setFreeze(enabled);
         ctx.getSource().getSender().sendMessage(
             gm.getTranslator().translate("command.config.freeze.status", String.valueOf(enabled)));
         return Command.SINGLE_SUCCESS;
@@ -263,7 +263,7 @@ public final class CommandHandler {
 
     private static int configExternalLobbyGet(CommandContext<CommandSourceStack> ctx, GameManager gm) {
         ctx.getSource().getSender().sendMessage(
-            gm.getTranslator().translate("command.config.externallobby.status", String.valueOf(gm.isExternalLobby())));
+            gm.getTranslator().translate("command.config.externallobby.status", String.valueOf(gm.getConfig().isExternalLobby())));
         return Command.SINGLE_SUCCESS;
     }
 
@@ -277,7 +277,7 @@ public final class CommandHandler {
 
     private static int configExternalLobbyServerGet(CommandContext<CommandSourceStack> ctx, GameManager gm) {
         ctx.getSource().getSender().sendMessage(
-            gm.getTranslator().translate("command.config.externallobbyServer.status", gm.getExternalLobbyServer()));
+            gm.getTranslator().translate("command.config.externallobbyServer.status", gm.getConfig().getExternalLobbyServer()));
         return Command.SINGLE_SUCCESS;
     }
 

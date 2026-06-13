@@ -44,9 +44,9 @@ public class GameManager {
 
     private final RelayRace plugin;
     private final LobbyManager lobbyManager;
+    private final RelayRaceConfig config;
     private GameState gameState = GameState.IDLE;
 
-    private int turnDuration; // in ticks
     private int remainingTicks;
 
     private Player activePlayer;
@@ -63,9 +63,6 @@ public class GameManager {
     private boolean countdownActive = false;
 
     private long gameStartTime;
-    private boolean debug;
-    private boolean loop;
-    private boolean freeze = true;
 
     private LobbyMessenger lobbyMessenger;
 
@@ -109,14 +106,19 @@ public class GameManager {
         }
     }
 
-    public GameManager(RelayRace plugin, LobbyManager lobbyManager) {
+    public GameManager(RelayRace plugin, LobbyManager lobbyManager, RelayRaceConfig config) {
         this.plugin = plugin;
         this.lobbyManager = lobbyManager;
+        this.config = config;
         setupTeams();
     }
 
     public Translator getTranslator() {
         return plugin.getTranslator();
+    }
+
+    public RelayRaceConfig getConfig() {
+        return config;
     }
 
     public void setLobbyMessenger(LobbyMessenger lobbyMessenger) {
@@ -128,43 +130,28 @@ public class GameManager {
         return activePlayer;
     }
 
-    // --- Config ---
-
-    public void loadConfig() {
-        plugin.getConfig().addDefault("locale", "zh");
-        plugin.getConfig().addDefault("time", 300);
-        plugin.getConfig().addDefault("debug", false);
-        plugin.getConfig().addDefault("loop", true);
-        plugin.getConfig().addDefault("freeze", true);
-        plugin.getConfig().addDefault("external-lobby", false);
-        plugin.getConfig().addDefault("external-lobby-server", "");
-        plugin.getConfig().options().copyDefaults(true);
-        saveConfigAsync();
-        turnDuration = plugin.getConfig().getInt("time") * 20;
-        debug = plugin.getConfig().getBoolean("debug");
-        loop = plugin.getConfig().getBoolean("loop");
-        freeze = plugin.getConfig().getBoolean("freeze");
-        String externalLobbyServer = plugin.getConfig().getString("external-lobby-server", "");
-        if (plugin.getConfig().getBoolean("external-lobby") && externalLobbyServer.isEmpty()) {
-            plugin.getLogger().warning("external-lobby 已启用，但未设置 external-lobby-server。");
-            plugin.getLogger().warning("请在 config.yml 中配置 external-lobby-server（大厅服务器的 Velocity 子服务器名称）。");
-        }
-        if (lobbyMessenger != null) {
-            lobbyMessenger.configure(externalLobbyServer);
-        }
-    }
-
-    public int getPlaytimeSeconds() {
-        return turnDuration / 20;
-    }
+    // --- Config convenience (config + game-state side effects) ---
 
     public void setPlaytimeSeconds(int seconds) {
-        turnDuration = seconds * 20;
-        if (remainingTicks > turnDuration) {
-            remainingTicks = turnDuration;
+        int newTicks = seconds * 20;
+        config.setPlaytimeSeconds(seconds);
+        if (remainingTicks > newTicks) {
+            remainingTicks = newTicks;
         }
-        plugin.getConfig().set("time", seconds);
-        saveConfigAsync();
+    }
+
+    public void setExternalLobby(boolean value) {
+        config.setExternalLobby(value);
+        if (lobbyMessenger != null) {
+            lobbyMessenger.configure(config.getExternalLobbyServer());
+        }
+    }
+
+    public void setExternalLobbyServer(String server) {
+        config.setExternalLobbyServer(server);
+        if (lobbyMessenger != null) {
+            lobbyMessenger.configure(server);
+        }
     }
 
     // --- Queries ---
@@ -184,77 +171,6 @@ public class GameManager {
     /** Player is either active or in the waiting queue. */
     public boolean isISpec(Player player) {
         return !isActivePlayer(player) && !isWaiting(player);
-    }
-
-    public boolean isDebug() {
-        return debug;
-    }
-
-    public void setDebug(boolean debug) {
-        this.debug = debug;
-        plugin.getConfig().set("debug", debug);
-        saveConfigAsync();
-    }
-
-    public boolean isLoop() {
-        return loop;
-    }
-
-    public void setLoop(boolean loop) {
-        this.loop = loop;
-        plugin.getConfig().set("loop", loop);
-        saveConfigAsync();
-    }
-
-    public boolean isFreeze() {
-        return freeze;
-    }
-
-    public void setFreeze(boolean freeze) {
-        this.freeze = freeze;
-        plugin.getConfig().set("freeze", freeze);
-        saveConfigAsync();
-    }
-
-    public void setLocale(String locale) {
-        plugin.getConfig().set("locale", locale);
-        saveConfigAsync();
-    }
-
-    public boolean isExternalLobby() {
-        return plugin.getConfig().getBoolean("external-lobby");
-    }
-
-    public void setExternalLobby(boolean value) {
-        plugin.getConfig().set("external-lobby", value);
-        saveConfigAsync();
-        if (value && getExternalLobbyServer().isEmpty()) {
-            plugin.getLogger().warning("external-lobby 已启用，但未设置 external-lobby-server。");
-            plugin.getLogger().warning("请在 config.yml 中配置 external-lobby-server（大厅服务器的 Velocity 子服务器名称）。");
-        }
-        if (lobbyMessenger != null) {
-            lobbyMessenger.configure(getExternalLobbyServer());
-        }
-    }
-
-    public String getExternalLobbyServer() {
-        return plugin.getConfig().getString("external-lobby-server", "");
-    }
-
-    public void setExternalLobbyServer(String server) {
-        plugin.getConfig().set("external-lobby-server", server);
-        saveConfigAsync();
-        if (isExternalLobby() && server.isEmpty()) {
-            plugin.getLogger().warning("external-lobby 已启用，但未设置 external-lobby-server。");
-            plugin.getLogger().warning("请在 config.yml 中配置 external-lobby-server（大厅服务器的 Velocity 子服务器名称）。");
-        }
-        if (lobbyMessenger != null) {
-            lobbyMessenger.configure(server);
-        }
-    }
-
-    private void saveConfigAsync() {
-        Bukkit.getAsyncScheduler().runNow(plugin, _ -> plugin.saveConfig());
     }
 
     // --- Teams ---
@@ -324,7 +240,7 @@ public class GameManager {
     private void updateBossBar() {
         if (bossBar == null) return;
         bossBar.setTitle(formattedTimeString());
-        float progress = turnDuration > 0 ? (float) remainingTicks / turnDuration : 0;
+        float progress = config.getTurnDuration() > 0 ? (float) remainingTicks / config.getTurnDuration() : 0;
         bossBar.setProgress(Math.clamp(progress, 0, 1));
         if (progress < 0.25) {
             bossBar.setColor(BarColor.RED);
@@ -550,7 +466,7 @@ public class GameManager {
         }
 
         // Boss bar
-        remainingTicks = turnDuration;
+        remainingTicks = config.getTurnDuration();
         createBossBar();
         updateBossBar();
         for (Player p : Bukkit.getOnlinePlayers()) {
@@ -558,7 +474,7 @@ public class GameManager {
         }
 
         // Freeze + 15s countdown, then start timer (skipped when freeze is disabled)
-        if (freeze) {
+        if (config.isFreeze()) {
             startCountdown(15, activePlayer, () -> {
                 Title goTitle = Title.title(
                     plugin.getTranslator().translate("game.go.title"),
@@ -597,7 +513,7 @@ public class GameManager {
         Entity oldShoulderRight = oldActive.getShoulderEntityRight();
 
         // Move old active to end of waiting (loop) or unassign (no loop)
-        if (loop) {
+        if (config.isLoop()) {
             oldActive.setGameMode(GameMode.ADVENTURE);
             oldActive.setFallDistance(0);
             lobbyManager.teleportToLobby(oldActive);
@@ -613,7 +529,7 @@ public class GameManager {
 
         // Skip offline players at the front, or attempt bring-back for external lobby
         while (!waitingPlayers.isEmpty() && offlineWaiting.contains(waitingPlayers.getFirst().getUniqueId())) {
-            if (lobbyMessenger != null && isExternalLobby()) {
+            if (lobbyMessenger != null && config.isExternalLobby()) {
                 // Attempt to bring this player back from the external lobby
                 UUID uuid = waitingPlayers.getFirst().getUniqueId();
                 String name = waitingPlayers.getFirst().getName();
@@ -781,12 +697,12 @@ public class GameManager {
         applyActiveDisplay(next);
 
         updateWaitingPrefixes();
-        remainingTicks = turnDuration;
+        remainingTicks = config.getTurnDuration();
         lastReminderCheck = -1; // reset reminder tracking for the new turn
         updateBossBar();
 
         // Freeze + 10s countdown before the new player can move (skipped when freeze is disabled)
-        if (freeze) {
+        if (config.isFreeze()) {
             startCountdown(10, next, () -> {
                 Title goTitle = Title.title(
                     plugin.getTranslator().translate("game.go.title"),
@@ -1033,7 +949,7 @@ public class GameManager {
         if (currentSec == lastReminderCheck) return;
         lastReminderCheck = currentSec;
 
-        int totalSec = turnDuration / 20;
+        int totalSec = config.getTurnDuration() / 20;
         int[] checkpoints;
         if (totalSec > 10) {
             checkpoints = new int[]{totalSec, (int) (totalSec * 0.6), (int) (totalSec * 0.2), 10};
@@ -1060,7 +976,7 @@ public class GameManager {
 
         if (next.isOnline()) {
             next.sendMessage(message);
-        } else if (lobbyMessenger != null && isExternalLobby()) {
+        } else if (lobbyMessenger != null && config.isExternalLobby()) {
             lobbyMessenger.sendMessage(next, message);
         }
         // If fully offline (not on lobby server), the message is lost — acceptable.

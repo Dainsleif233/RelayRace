@@ -93,7 +93,7 @@ public class LobbyMessenger implements PluginMessageListener {
      * The proxy's response is handled in {@link #onPluginMessageReceived}.
      */
     public void tryAutoDetect(Player player) {
-        if (!gameManager.isExternalLobby()) return;
+        if (!gameManager.getConfig().isExternalLobby()) return;
         if (detectedServerName != null) return;
         // 玩家刚加入时 BungeeCord 通道可能尚未就绪，延迟 1 秒发送
         Bukkit.getGlobalRegionScheduler().runDelayed(plugin,
@@ -101,7 +101,7 @@ public class LobbyMessenger implements PluginMessageListener {
     }
 
     private void tryAutoDetectNow(Player player) {
-        if (!gameManager.isExternalLobby()) return;
+        if (!gameManager.getConfig().isExternalLobby()) return;
         if (detectedServerName != null) return;
         // 如果玩家已离线则跳过
         if (!player.isOnline()) return;
@@ -123,7 +123,7 @@ public class LobbyMessenger implements PluginMessageListener {
      * @return a future that completes normally on arrival, or exceptionally on timeout
      */
     public CompletableFuture<Void> bringBack(UUID uuid, String playerName) {
-        if (!gameManager.isExternalLobby()) {
+        if (!gameManager.getConfig().isExternalLobby()) {
             return CompletableFuture.failedFuture(new IllegalStateException("外部大厅未启用"));
         }
         if (detectedServerName == null) {
@@ -177,7 +177,7 @@ public class LobbyMessenger implements PluginMessageListener {
             player.sendMessage(message);
             return;
         }
-        if (!gameManager.isExternalLobby()) return;
+        if (!gameManager.getConfig().isExternalLobby()) return;
 
         String plain = PlainTextComponentSerializer.plainText().serialize(message);
         Player sender = findAnyOnlinePlayer();

@@ -20,14 +20,17 @@ public final class RelayRace extends JavaPlugin {
         LobbyManager lobbyManager = new LobbyManager();
         lobbyManager.createLobbyWorld();
 
-        gameManager = new GameManager(this, lobbyManager);
+        // Load config
+        RelayRaceConfig config = new RelayRaceConfig(this);
+        config.load();
+
+        gameManager = new GameManager(this, lobbyManager, config);
 
         // Create and wire LobbyMessenger
         lobbyMessenger = new LobbyMessenger(this, gameManager);
         lobbyMessenger.register();
         gameManager.setLobbyMessenger(lobbyMessenger);
-
-        gameManager.loadConfig();
+        lobbyMessenger.configure(config.getExternalLobbyServer());
 
         translator = new Translator(this);
         translator.loadLocale(getConfig().getString("locale", "zh"));
@@ -63,7 +66,7 @@ public final class RelayRace extends JavaPlugin {
      * 由 EventListener、LobbyMessenger 等类共用。
      */
     public void debug(String msg) {
-        if (gameManager != null && gameManager.isDebug()) {
+        if (gameManager != null && gameManager.getConfig().isDebug()) {
             getLogger().warning("[DEBUG] " + msg);
         }
     }
