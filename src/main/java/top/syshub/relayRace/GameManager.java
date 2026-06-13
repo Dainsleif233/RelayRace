@@ -10,6 +10,7 @@ import org.bukkit.ChatColor;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.NamespacedKey;
 import org.bukkit.World;
 import org.bukkit.boss.BarColor;
@@ -19,6 +20,7 @@ import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.AnimalTamer;
 import org.bukkit.entity.EnderPearl;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.Item;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Mob;
 import org.bukkit.entity.Player;
@@ -500,6 +502,11 @@ public class GameManager {
 
         // Capture current player state
         Player oldActive = activePlayer;
+
+        // Close inventory to eject crafting grid / anvil / grindstone items,
+        // then collect any dropped items back into the player before snapshotting.
+        collectCraftingDrops(oldActive);
+
         PlayerData snapshot = PlayerData.capture(oldActive);
 
         // Save mount/passenger/shoulder references before teleporting old player
@@ -799,6 +806,22 @@ public class GameManager {
             }
         }
         endGame(true);
+    }
+
+    /**
+     * Close the player's open inventory so items in crafting grids / anvils / etc.
+     * are ejected as Item entities, then pick them up into the player's inventory.
+     * This prevents item loss when switching players mid-turn.
+     */
+    private void collectCraftingDrops(Player player) {
+        player.closeInventory();
+        Collection<Item> drops = player.getLocation().getNearbyEntitiesByType(Item.class, 2);
+        for (Item drop : drops) {
+            ItemStack stack = drop.getItemStack().clone();
+            drop.remove();
+            player.getInventory().addItem(stack).forEach((slot, leftover) ->
+                player.getWorld().dropItemNaturally(player.getLocation(), leftover));
+        }
     }
 
     // --- Entity bindings inheritance ---

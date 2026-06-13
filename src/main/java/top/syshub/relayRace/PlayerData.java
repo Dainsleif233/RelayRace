@@ -33,6 +33,8 @@ public class PlayerData {
     private final int portalCooldown;
     private final int freezeTicks;
     private final boolean glowing;
+    private final int heldItemSlot;
+    private final ItemStack cursorItem;
 
     public PlayerData(Location location, Vector velocity,
                       ItemStack[] inventoryContents, ItemStack[] enderChestContents,
@@ -42,7 +44,7 @@ public class PlayerData {
                       Collection<PotionEffect> potionEffects,
                       float walkSpeed, Location bedSpawnLocation,
                       int arrowsInBody, int portalCooldown, int freezeTicks,
-                      boolean glowing) {
+                      boolean glowing, int heldItemSlot, ItemStack cursorItem) {
         this.location = location;
         this.velocity = velocity;
         this.inventoryContents = inventoryContents;
@@ -63,6 +65,8 @@ public class PlayerData {
         this.portalCooldown = portalCooldown;
         this.freezeTicks = freezeTicks;
         this.glowing = glowing;
+        this.heldItemSlot = heldItemSlot;
+        this.cursorItem = cursorItem;
     }
 
     public static PlayerData capture(Player player) {
@@ -88,7 +92,9 @@ public class PlayerData {
             player.getArrowsInBody(),
             player.getPortalCooldown(),
             player.getFreezeTicks(),
-            player.isGlowing()
+            player.isGlowing(),
+            player.getInventory().getHeldItemSlot(),
+            player.getItemOnCursor() != null ? player.getItemOnCursor().clone() : null
         );
         reset(player);
         return data;
@@ -109,6 +115,7 @@ public class PlayerData {
         player.setPortalCooldown(0);
         player.setFreezeTicks(0);
         player.setGlowing(false);
+        player.setItemOnCursor(null);
     }
 
     public void apply(Player player) {
@@ -138,6 +145,8 @@ public class PlayerData {
         player.setPortalCooldown(portalCooldown);
         player.setFreezeTicks(freezeTicks);
         player.setGlowing(glowing);
+        player.getInventory().setHeldItemSlot(heldItemSlot);
+        player.setItemOnCursor(cursorItem);
         player.teleport(location);
     }
 }
