@@ -9,10 +9,10 @@ java {
 }
 
 repositories {
-     maven("https://mirrors.cqu.edu.cn/maven/")
-     maven("https://mirrors.cqu.edu.cn/maven/papermc/")
-//    maven("https://repo.papermc.io/repository/maven-public/")
-//    maven("https://maven.aliyun.com/repository/public")
+//     maven("https://mirrors.cqu.edu.cn/maven/")
+//     maven("https://mirrors.cqu.edu.cn/maven/papermc/")
+    maven("https://repo.papermc.io/repository/maven-public/")
+    maven("https://maven.aliyun.com/repository/public")
 }
 
 dependencies {
