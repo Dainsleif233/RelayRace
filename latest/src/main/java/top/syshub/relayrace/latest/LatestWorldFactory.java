@@ -4,7 +4,6 @@ import org.bukkit.Bukkit;
 import org.bukkit.NamespacedKey;
 import org.bukkit.World;
 import org.bukkit.WorldCreator;
-import org.bukkit.WorldType;
 
 import top.syshub.relayrace.common.api.WorldFactory;
 
@@ -29,8 +28,7 @@ public final class LatestWorldFactory implements WorldFactory {
         }
         creator.environment(World.Environment.NORMAL);
         creator.generateStructures(false);
-        creator.type(WorldType.FLAT);
-        creator.generatorSettings("{\"layers\":[{\"height\":1,\"block\":\"minecraft:bedrock\"},{\"height\":127,\"block\":\"minecraft:dirt\"},{\"height\":1,\"block\":\"minecraft:grass_block\"}]}");
+        creator.generator(new LatestLobbyGenerator());
         return creator.createWorld();
     }
 }

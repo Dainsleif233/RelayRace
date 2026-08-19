@@ -3,7 +3,6 @@ package top.syshub.relayrace.classic;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.WorldCreator;
-import org.bukkit.WorldType;
 
 import top.syshub.relayrace.common.api.WorldFactory;
 
@@ -19,8 +18,10 @@ public final class ClassicWorldFactory implements WorldFactory {
         WorldCreator creator = WorldCreator.name("lobby");
         creator.environment(World.Environment.NORMAL);
         creator.generateStructures(false);
-        creator.type(WorldType.FLAT);
-        creator.generatorSettings("{\"layers\":[{\"height\":1,\"block\":\"minecraft:bedrock\"},{\"height\":127,\"block\":\"minecraft:dirt\"},{\"height\":1,\"block\":\"minecraft:grass_block\"}]}");
+        // 1.16.1's FlatGeneratorInfo does not reliably honour the settings
+        // JSON (SPIGOT-5970); use a custom generator so the surface is always
+        // at y=64 regardless of the Minecraft version.
+        creator.generator(new ClassicLobbyGenerator());
         return creator.createWorld();
     }
 }

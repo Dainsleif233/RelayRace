@@ -18,19 +18,19 @@ public class LobbyManager {
     public void createLobbyWorld() {
         lobbyWorld = worldFactory.createLobbyWorld();
         if (lobbyWorld != null) {
-            lobbyWorld.setSpawnLocation(0, 65, 0);
+            lobbyWorld.setSpawnLocation(0, LobbyTerrain.SURFACE_Y, 0);
         }
     }
 
     public void teleportToLobby(Player player) {
         if (lobbyWorld == null) return;
-        player.teleport(new Location(lobbyWorld, 0.5, 65, 0.5));
+        player.teleport(new Location(lobbyWorld, 0.5, LobbyTerrain.SURFACE_Y + 0.5, 0.5));
         player.setFallDistance(0);
     }
 
     public Location getLobbySpawn() {
         if (lobbyWorld == null) return null;
-        return new Location(lobbyWorld, 0.5, 65, 0.5);
+        return new Location(lobbyWorld, 0.5, LobbyTerrain.SURFACE_Y + 0.5, 0.5);
     }
 
     public World getLobbyWorld() {
