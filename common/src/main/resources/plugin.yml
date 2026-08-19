@@ -1,0 +1,12 @@
+name: RelayRace
+description: Survive in relay until you clear the game.
+author: Dainsleif
+version: '1.3'
+main: top.syshub.relayrace.common.RelayRacePlugin
+api-version: '1.16'
+load: POSTWORLD
+
+permissions:
+  relayrace.command:
+    description: Allows use of /relayrace commands
+    default: op
