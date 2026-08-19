@@ -38,19 +38,14 @@ public class RelayRaceConfig {
 
         boolean externalLobby = plugin.getConfig().getBoolean("external-lobby");
         String externalLobbyServer = plugin.getConfig().getString("external-lobby-server", "");
-        if (externalLobby && externalLobbyServer.isEmpty()) {
+        if (externalLobby && (externalLobbyServer == null || externalLobbyServer.isEmpty())) {
             plugin.getLogger().warning(plugin.getTranslator().plain("logger.config.externalLobbyServerMissing"));
             plugin.getLogger().warning(plugin.getTranslator().plain("logger.config.externalLobbyServerHint"));
         }
     }
 
     public void saveAsync() {
-        platform.scheduler().runAsync(plugin, new Runnable() {
-            @Override
-            public void run() {
-                plugin.saveConfig();
-            }
-        });
+        platform.scheduler().runAsync(plugin, plugin::saveConfig);
     }
 
     public int getTurnDuration() {
@@ -108,7 +103,8 @@ public class RelayRaceConfig {
     public void setExternalLobby(boolean value) {
         plugin.getConfig().set("external-lobby", value);
         saveAsync();
-        if (value && getExternalLobbyServer().isEmpty()) {
+        String server = getExternalLobbyServer();
+        if (value && (server == null || server.isEmpty())) {
             plugin.getLogger().warning(plugin.getTranslator().plain("logger.config.externalLobbyServerMissing"));
             plugin.getLogger().warning(plugin.getTranslator().plain("logger.config.externalLobbyServerHint"));
         }
@@ -117,7 +113,7 @@ public class RelayRaceConfig {
     public void setExternalLobbyServer(String server) {
         plugin.getConfig().set("external-lobby-server", server);
         saveAsync();
-        if (isExternalLobby() && server.isEmpty()) {
+        if (isExternalLobby() && (server == null || server.isEmpty())) {
             plugin.getLogger().warning(plugin.getTranslator().plain("logger.config.externalLobbyServerMissing"));
             plugin.getLogger().warning(plugin.getTranslator().plain("logger.config.externalLobbyServerHint"));
         }

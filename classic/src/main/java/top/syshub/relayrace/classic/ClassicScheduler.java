@@ -13,12 +13,7 @@ public final class ClassicScheduler implements Scheduler {
     public CancellableTask runAtFixedRate(RelayRacePlugin plugin, Runnable task,
                                           long delayTicks, long periodTicks) {
         BukkitTask bukkitTask = Bukkit.getScheduler().runTaskTimer(plugin, task, delayTicks, periodTicks);
-        return new CancellableTask() {
-            @Override
-            public void cancel() {
-                bukkitTask.cancel();
-            }
-        };
+        return bukkitTask::cancel;
     }
 
     @Override

@@ -17,16 +17,13 @@ import java.util.Arrays;
 
 public final class ClassicPlatform implements Platform {
 
-    private final RelayRacePlugin plugin;
     private final Scheduler scheduler = new ClassicScheduler();
     private final TickControl tickControl = new ClassicTickControl();
     private final WorldFactory worldFactory = new ClassicWorldFactory();
     private final PlayerUi ui = new ClassicPlayerUi();
     private final CommandRegistrar commands = new ClassicCommandHandler();
 
-    public ClassicPlatform(RelayRacePlugin plugin) {
-        this.plugin = plugin;
-    }
+    public ClassicPlatform() {}
 
     @Override
     public String id() {

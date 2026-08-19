@@ -4,6 +4,7 @@ import top.syshub.relayrace.common.RelayRacePlugin;
 import top.syshub.relayrace.common.api.Platform;
 import top.syshub.relayrace.common.api.PlatformProvider;
 
+@SuppressWarnings("unused")
 public final class LatestPlatformProvider implements PlatformProvider {
 
     @Override
@@ -18,6 +19,6 @@ public final class LatestPlatformProvider implements PlatformProvider {
 
     @Override
     public Platform create(RelayRacePlugin plugin) {
-        return new LatestPlatform(plugin);
+        return new LatestPlatform();
     }
 }

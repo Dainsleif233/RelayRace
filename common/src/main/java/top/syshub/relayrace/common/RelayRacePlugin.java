@@ -78,10 +78,6 @@ public final class RelayRacePlugin extends JavaPlugin {
             : "RelayRace disabled");
     }
 
-    public LobbyMessenger getLobbyMessenger() {
-        return lobbyMessenger;
-    }
-
     public void debug(String msg) {
         if (getRelayConfig() != null && getRelayConfig().isDebug()) {
             getLogger().warning("[DEBUG] " + msg);

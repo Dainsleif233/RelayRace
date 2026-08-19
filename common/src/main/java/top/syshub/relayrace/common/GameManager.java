@@ -14,12 +14,12 @@ import org.bukkit.entity.Mob;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Tameable;
 import org.bukkit.scoreboard.Scoreboard;
+import org.bukkit.scoreboard.ScoreboardManager;
 import org.bukkit.scoreboard.Team;
 
 import top.syshub.relayrace.common.api.BossBarHandle;
 import top.syshub.relayrace.common.api.CancellableTask;
 import top.syshub.relayrace.common.api.Platform;
-import top.syshub.relayrace.common.api.Scheduler;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -44,8 +44,8 @@ public class GameManager {
     private int remainingTicks;
 
     private Player activePlayer;
-    private final List<Player> waitingPlayers = new ArrayList<Player>();
-    private final Set<UUID> offlineWaiting = new HashSet<UUID>();
+    private final List<Player> waitingPlayers = new ArrayList<>();
+    private final Set<UUID> offlineWaiting = new HashSet<>();
 
     private BossBarHandle bossBar;
     private CancellableTask timerTask;
@@ -63,8 +63,8 @@ public class GameManager {
 
     private int lastReminderCheck = -1;
 
-    private final Map<UUID, Set<UUID>> petOwnershipIndex = new HashMap<UUID, Set<UUID>>();
-    private final Map<UUID, UUID> pendingPetTransfers = new HashMap<UUID, UUID>();
+    private final Map<UUID, Set<UUID>> petOwnershipIndex = new HashMap<>();
+    private final Map<UUID, UUID> pendingPetTransfers = new HashMap<>();
 
     private static class PendingRotation {
         final UUID playerUuid;
@@ -155,7 +155,9 @@ public class GameManager {
     // --- Teams ---
 
     private void setupTeams() {
-        Scoreboard scoreboard = Bukkit.getScoreboardManager().getMainScoreboard();
+        ScoreboardManager manager = Bukkit.getScoreboardManager();
+        if (manager == null) return;
+        Scoreboard scoreboard = manager.getMainScoreboard();
         greenTeam = scoreboard.getTeam("RR_Green");
         if (greenTeam == null) {
             greenTeam = scoreboard.registerNewTeam("RR_Green");
@@ -172,9 +174,9 @@ public class GameManager {
     }
 
     private void assignTeam(Player player, Team team) {
-        greenTeam.removePlayer(player);
-        yellowTeam.removePlayer(player);
-        team.addPlayer(player);
+        greenTeam.removeEntry(player.getName());
+        yellowTeam.removeEntry(player.getName());
+        team.addEntry(player.getName());
     }
 
     // --- Display ---
@@ -304,7 +306,7 @@ public class GameManager {
 
     public void removeFromWaiting(Player player) {
         waitingPlayers.remove(player);
-        yellowTeam.removePlayer(player);
+        yellowTeam.removeEntry(player.getName());
         clearPlayerDisplay(player);
 
         if (isRunning()) {
@@ -315,14 +317,9 @@ public class GameManager {
     }
 
     private void removeFromAllGroups(Player player) {
-        waitingPlayers.removeIf(new java.util.function.Predicate<Player>() {
-            @Override
-            public boolean test(Player p) {
-                return p.getUniqueId().equals(player.getUniqueId());
-            }
-        });
-        greenTeam.removePlayer(player);
-        yellowTeam.removePlayer(player);
+        waitingPlayers.removeIf(p -> p.getUniqueId().equals(player.getUniqueId()));
+        greenTeam.removeEntry(player.getName());
+        yellowTeam.removeEntry(player.getName());
         clearPlayerDisplay(player);
         if (activePlayer != null && activePlayer.equals(player)) {
             activePlayer = null;
@@ -355,24 +352,21 @@ public class GameManager {
         final int[] remaining = {seconds};
         countdownActive = true;
 
-        countdownTask = platform.scheduler().runAtFixedRate(plugin, new Runnable() {
-            @Override
-            public void run() {
-                if (remaining[0] > 0) {
-                    platform.ui().sendTitle(target,
-                        plugin.getTranslator().format("game.countdown.number", String.valueOf(remaining[0])),
-                        "", 0, 18, 2);
-                    remaining[0]--;
-                } else {
-                    if (countdownTask != null) {
-                        countdownTask.cancel();
-                    }
-                    countdownTask = null;
-                    countdownActive = false;
-                    platform.tickControl().restore();
-                    if (onComplete != null) {
-                        onComplete.run();
-                    }
+        countdownTask = platform.scheduler().runAtFixedRate(plugin, () -> {
+            if (remaining[0] > 0) {
+                platform.ui().sendTitle(target,
+                    plugin.getTranslator().format("game.countdown.number", String.valueOf(remaining[0])),
+                    "", 0, 18, 2);
+                remaining[0]--;
+            } else {
+                if (countdownTask != null) {
+                    countdownTask.cancel();
+                }
+                countdownTask = null;
+                countdownActive = false;
+                platform.tickControl().restore();
+                if (onComplete != null) {
+                    onComplete.run();
                 }
             }
         }, 1L, 1L);
@@ -396,14 +390,15 @@ public class GameManager {
         assignTeam(activePlayer, greenTeam);
         activePlayer.setGameMode(GameMode.SURVIVAL);
 
-        Location worldSpawn = Bukkit.getWorlds().get(0).getSpawnLocation();
-        worldSpawn.getWorld().setFullTime(0);
+        World world = Bukkit.getWorlds().get(0);
+        Location worldSpawn = world.getSpawnLocation();
+        world.setFullTime(0);
         activePlayer.teleport(worldSpawn);
         platform.setRespawnLocation(activePlayer, worldSpawn);
 
         PlayerData.reset(activePlayer, platform);
         platform.setHasSeenWinScreen(activePlayer, true);
-        double maxHealth = activePlayer.getMaxHealth();
+        double maxHealth = platform.captureMaxHealth(activePlayer);
         activePlayer.setHealth(maxHealth);
         activePlayer.setFoodLevel(20);
         activePlayer.setSaturation(5);
@@ -430,13 +425,10 @@ public class GameManager {
         }
 
         if (config.isFreeze()) {
-            startCountdown(15, activePlayer, new Runnable() {
-                @Override
-                public void run() {
-                    platform.ui().sendTitle(activePlayer,
-                        plugin.getTranslator().format("game.go.title"), "", 0, 10, 6);
-                    startTimer();
-                }
+            startCountdown(15, activePlayer, () -> {
+                platform.ui().sendTitle(activePlayer,
+                    plugin.getTranslator().format("game.go.title"), "", 0, 10, 6);
+                startTimer();
             });
         } else {
             startTimer();
@@ -448,6 +440,7 @@ public class GameManager {
         return pendingRotation != null;
     }
 
+    @SuppressWarnings("deprecation")
     public void switchToNextPlayer() {
         if (!isRunning() || activePlayer == null) return;
         if (pendingRotation != null) return;
@@ -461,7 +454,7 @@ public class GameManager {
         PlayerData snapshot = PlayerData.capture(oldActive, platform);
 
         Entity oldVehicle = oldActive.getVehicle();
-        List<Entity> oldPassengers = new ArrayList<Entity>(oldActive.getPassengers());
+        List<Entity> oldPassengers = new ArrayList<>(oldActive.getPassengers());
         Entity oldShoulderLeft = oldActive.getShoulderEntityLeft();
         Entity oldShoulderRight = oldActive.getShoulderEntityRight();
 
@@ -474,7 +467,7 @@ public class GameManager {
         } else {
             oldActive.setGameMode(GameMode.SPECTATOR);
             clearPlayerDisplay(oldActive);
-            greenTeam.removePlayer(oldActive);
+            greenTeam.removeEntry(oldActive.getName());
         }
 
         updateWaitingPrefixes();
@@ -502,28 +495,25 @@ public class GameManager {
                     return;
                 }
 
-                future.whenComplete(new java.util.function.BiConsumer<Void, Throwable>() {
-                    @Override
-                    public void accept(Void v, Throwable ex) {
-                        if (pendingRotation != pr) return;
+                future.whenComplete((v, ex) -> {
+                    if (pendingRotation != pr) return;
 
-                        if (ex instanceof CancellationException) {
-                            pendingRotation = null;
-                            return;
-                        }
+                    if (ex instanceof CancellationException) {
+                        pendingRotation = null;
+                        return;
+                    }
 
-                        if (ex != null || pr.cancelled) {
-                            pendingRotation = null;
-                            removeByUuid(uuid);
-                            offlineWaiting.remove(uuid);
-                            updateWaitingPrefixes();
-                            skipOfflinePlayers();
-                            if (waitingPlayers.isEmpty() && activePlayer == null) {
-                                endGame(false);
-                            }
-                        } else {
-                            completeRotationAfterBringback(uuid);
+                    if (ex != null || pr.cancelled) {
+                        pendingRotation = null;
+                        removeByUuid(uuid);
+                        offlineWaiting.remove(uuid);
+                        updateWaitingPrefixes();
+                        skipOfflinePlayers();
+                        if (waitingPlayers.isEmpty() && activePlayer == null) {
+                            endGame(false);
                         }
+                    } else {
+                        completeRotationAfterBringback(uuid);
                     }
                 });
                 return;
@@ -571,31 +561,7 @@ public class GameManager {
             pr.oldVehicle, pr.oldPassengers, pr.oldShoulderLeft, pr.oldShoulderRight);
     }
 
-    public void onBringBackTimeout(UUID uuid) {
-        if (pendingRotation == null || !pendingRotation.playerUuid.equals(uuid)) return;
-
-        PendingRotation pr = pendingRotation;
-        pendingRotation = null;
-
-        removeByUuid(uuid);
-        offlineWaiting.remove(uuid);
-        updateWaitingPrefixes();
-        plugin.getLogger().warning(plugin.getTranslator().plain("logger.bringBack.timeoutSkip", uuid.toString()));
-
-        skipOfflinePlayers();
-
-        if (waitingPlayers.isEmpty()) {
-            if (activePlayer == null) {
-                endGame(false);
-            }
-            return;
-        }
-
-        Player next = waitingPlayers.remove(0);
-        activateNextPlayer(pr.snapshot, pr.oldActive, next,
-            pr.oldVehicle, pr.oldPassengers, pr.oldShoulderLeft, pr.oldShoulderRight);
-    }
-
+    @SuppressWarnings("deprecation")
     private void activateNextPlayer(PlayerData snapshot, Player oldActive, Player next,
                                     Entity oldVehicle, List<Entity> oldPassengers,
                                     Entity oldShoulderLeft, Entity oldShoulderRight) {
@@ -629,13 +595,8 @@ public class GameManager {
         updateBossBar();
 
         if (config.isFreeze()) {
-            startCountdown(10, next, new Runnable() {
-                @Override
-                public void run() {
-                    platform.ui().sendTitle(next,
-                        plugin.getTranslator().format("game.go.title"), "", 0, 10, 6);
-                }
-            });
+            startCountdown(10, next, () -> platform.ui().sendTitle(next,
+                plugin.getTranslator().format("game.go.title"), "", 0, 10, 6));
         }
     }
 
@@ -648,12 +609,7 @@ public class GameManager {
     }
 
     private void removeByUuid(UUID uuid) {
-        waitingPlayers.removeIf(new java.util.function.Predicate<Player>() {
-            @Override
-            public boolean test(Player p) {
-                return p.getUniqueId().equals(uuid);
-            }
-        });
+        waitingPlayers.removeIf(p -> p.getUniqueId().equals(uuid));
     }
 
     public void endGame(boolean wonByPortal) {
@@ -681,7 +637,7 @@ public class GameManager {
         for (Player p : waitingPlayers) {
             p.setGameMode(GameMode.SPECTATOR);
             clearPlayerDisplay(p);
-            yellowTeam.removePlayer(p);
+            yellowTeam.removeEntry(p.getName());
         }
         waitingPlayers.clear();
         offlineWaiting.clear();
@@ -730,7 +686,7 @@ public class GameManager {
     }
 
     private void collectCraftingDrops(Player player) {
-        if (player.getWorld() == null) return;
+        player.getWorld();
         player.closeInventory();
         Collection<Entity> nearby = player.getWorld().getNearbyEntities(
             player.getLocation(), 2.0, 2.0, 2.0);
@@ -740,12 +696,7 @@ public class GameManager {
                 org.bukkit.inventory.ItemStack stack = drop.getItemStack().clone();
                 drop.remove();
                 player.getInventory().addItem(stack).forEach(
-                    new java.util.function.BiConsumer<Integer, org.bukkit.inventory.ItemStack>() {
-                        @Override
-                        public void accept(Integer slot, org.bukkit.inventory.ItemStack leftover) {
-                            player.getWorld().dropItemNaturally(player.getLocation(), leftover);
-                        }
-                    });
+                        (slot, leftover) -> player.getWorld().dropItemNaturally(player.getLocation(), leftover));
             }
         }
     }
@@ -790,12 +741,7 @@ public class GameManager {
             set.remove(entityUUID);
         }
         pendingPetTransfers.remove(entityUUID);
-        petOwnershipIndex.computeIfAbsent(playerUUID, new java.util.function.Function<UUID, Set<UUID>>() {
-            @Override
-            public Set<UUID> apply(UUID key) {
-                return new HashSet<UUID>();
-            }
-        }).add(entityUUID);
+        petOwnershipIndex.computeIfAbsent(playerUUID, key -> new HashSet<>()).add(entityUUID);
     }
 
     public void onEntityDeath(UUID entityUUID) {
@@ -823,10 +769,8 @@ public class GameManager {
         UUID fromUUID = from.getUniqueId();
         UUID toUUID = to.getUniqueId();
 
-        Set<UUID> allPets = new HashSet<UUID>(
-            petOwnershipIndex.containsKey(fromUUID)
-                ? petOwnershipIndex.get(fromUUID)
-                : Collections.<UUID>emptySet());
+        Set<UUID> allPets = new HashSet<>(
+                petOwnershipIndex.getOrDefault(fromUUID, Collections.emptySet()));
 
         World lobbyWorld = lobbyManager.getLobbyWorld();
         for (World world : Bukkit.getWorlds()) {
@@ -865,12 +809,7 @@ public class GameManager {
 
     private void startTimer() {
         stopTimer();
-        timerTask = platform.scheduler().runAtFixedRate(plugin, new Runnable() {
-            @Override
-            public void run() {
-                tick();
-            }
-        }, 1L, 1L);
+        timerTask = platform.scheduler().runAtFixedRate(plugin, this::tick, 1L, 1L);
     }
 
     private void stopTimer() {
@@ -960,7 +899,7 @@ public class GameManager {
             PlayerData snapshot = PlayerData.capture(player, platform);
 
             Entity vehicle = player.getVehicle();
-            List<Entity> passengers = new ArrayList<Entity>(player.getPassengers());
+            List<Entity> passengers = new ArrayList<>(player.getPassengers());
 
             activePlayer = null;
             skipOfflinePlayers();
@@ -974,7 +913,7 @@ public class GameManager {
         } else if (isWaiting(player)) {
             if (isRunning()) {
                 offlineWaiting.add(player.getUniqueId());
-                yellowTeam.removePlayer(player);
+                yellowTeam.removeEntry(player.getName());
                 clearPlayerDisplay(player);
             } else {
                 waitingPlayers.remove(player);
@@ -982,8 +921,8 @@ public class GameManager {
             }
         }
 
-        greenTeam.removePlayer(player);
-        yellowTeam.removePlayer(player);
+        greenTeam.removeEntry(player.getName());
+        yellowTeam.removeEntry(player.getName());
     }
 
     // --- Cleanup ---

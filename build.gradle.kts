@@ -23,7 +23,7 @@ sourceSets.main {
 }
 
 subprojects {
-    apply(plugin = "java")
+    pluginManager.apply("java")
 
     java {
         sourceCompatibility = JavaVersion.VERSION_1_8
@@ -33,6 +33,8 @@ subprojects {
     tasks.withType<JavaCompile>().configureEach {
         options.encoding = "UTF-8"
         options.release.set(8)
+        options.compilerArgs.add("-Xlint:deprecation")
+        options.compilerArgs.add("-Xlint:-options")
     }
 
     tasks.jar {

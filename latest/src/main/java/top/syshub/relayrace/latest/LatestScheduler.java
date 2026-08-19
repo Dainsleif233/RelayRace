@@ -15,12 +15,7 @@ public final class LatestScheduler implements Scheduler {
                                           long delayTicks, long periodTicks) {
         ScheduledTask scheduledTask = Bukkit.getGlobalRegionScheduler().runAtFixedRate(
             plugin, ignored -> task.run(), delayTicks, periodTicks);
-        return new CancellableTask() {
-            @Override
-            public void cancel() {
-                scheduledTask.cancel();
-            }
-        };
+        return scheduledTask::cancel;
     }
 
     @Override

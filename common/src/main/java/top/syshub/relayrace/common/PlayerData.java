@@ -80,7 +80,7 @@ public class PlayerData {
             player.getInventory().getContents().clone(),
             player.getEnderChest().getContents().clone(),
             player.getHealth(),
-            player.getMaxHealth(),
+            platform.captureMaxHealth(player),
             player.getAbsorptionAmount(),
             player.getFoodLevel(),
             player.getSaturation(),
@@ -88,14 +88,14 @@ public class PlayerData {
             player.getRemainingAir(),
             player.getFireTicks(),
             player.getFallDistance(),
-            new ArrayList<PotionEffect>(player.getActivePotionEffects()),
+                new ArrayList<>(player.getActivePotionEffects()),
             player.getWalkSpeed(),
             player.getBedSpawnLocation() != null
                 ? player.getBedSpawnLocation().clone() : null,
             player.getPortalCooldown(),
             player.isGlowing(),
             player.getInventory().getHeldItemSlot(),
-            player.getItemOnCursor() != null ? player.getItemOnCursor().clone() : null,
+            player.getItemOnCursor().clone(),
             extras.getArrowsInBody(),
             extras.getFreezeTicks()
         );
@@ -125,8 +125,8 @@ public class PlayerData {
     public void apply(Player player, Platform platform) {
         player.getInventory().setContents(inventoryContents);
         player.getEnderChest().setContents(enderChestContents);
-        player.setMaxHealth(maxHealth);
-        player.setHealth(Math.min(health, player.getMaxHealth()));
+        platform.applyMaxHealth(player, maxHealth);
+        player.setHealth(Math.min(health, platform.captureMaxHealth(player)));
         player.setAbsorptionAmount(absorptionAmount);
         player.setFoodLevel(foodLevel);
         player.setSaturation(saturation);

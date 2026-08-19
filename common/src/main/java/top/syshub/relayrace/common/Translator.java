@@ -19,10 +19,10 @@ public class Translator {
     private static final Pattern TAG_PATTERN = Pattern.compile("<[^>]+>");
 
     private final RelayRacePlugin plugin;
-    private final Map<String, String> translations = new HashMap<String, String>();
+    private final Map<String, String> translations = new HashMap<>();
     private String currentLocale;
     private final Set<String> availableLocales =
-        new HashSet<String>(Arrays.asList("zh", "en"));
+            new HashSet<>(Arrays.asList("zh", "en"));
 
     public Translator(RelayRacePlugin plugin) {
         this.plugin = plugin;

@@ -1,6 +1,8 @@
 package top.syshub.relayrace.latest;
 
 import org.bukkit.Location;
+import org.bukkit.attribute.Attribute;
+import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -18,16 +20,13 @@ import top.syshub.relayrace.common.api.WorldFactory;
 
 public final class LatestPlatform implements Platform {
 
-    private final RelayRacePlugin plugin;
     private final Scheduler scheduler = new LatestScheduler();
     private final TickControl tickControl = new LatestTickControl();
     private final WorldFactory worldFactory = new LatestWorldFactory();
     private final PlayerUi ui = new LatestPlayerUi();
     private final CommandRegistrar commands = new LatestCommandHandler();
 
-    public LatestPlatform(RelayRacePlugin plugin) {
-        this.plugin = plugin;
-    }
+    public LatestPlatform() {}
 
     @Override
     public String id() {
@@ -90,6 +89,20 @@ public final class LatestPlatform implements Platform {
     @Override
     public void setRespawnLocation(Player player, Location location) {
         player.setRespawnLocation(location, true);
+    }
+
+    @Override
+    public double captureMaxHealth(Player player) {
+        AttributeInstance attr = player.getAttribute(Attribute.MAX_HEALTH);
+        return attr != null ? attr.getBaseValue() : 20.0;
+    }
+
+    @Override
+    public void applyMaxHealth(Player player, double maxHealth) {
+        AttributeInstance attr = player.getAttribute(Attribute.MAX_HEALTH);
+        if (attr != null) {
+            attr.setBaseValue(maxHealth);
+        }
     }
 
     @Override

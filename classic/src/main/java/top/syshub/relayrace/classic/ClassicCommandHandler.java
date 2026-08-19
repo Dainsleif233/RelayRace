@@ -1,7 +1,6 @@
 package top.syshub.relayrace.classic;
 
 import org.bukkit.Bukkit;
-import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.command.SimpleCommandMap;
@@ -12,10 +11,7 @@ import top.syshub.relayrace.common.RelayRacePlugin;
 import top.syshub.relayrace.common.api.CommandRegistrar;
 
 import java.lang.reflect.Field;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 public final class ClassicCommandHandler implements CommandRegistrar {
 
@@ -33,15 +29,10 @@ public final class ClassicCommandHandler implements CommandRegistrar {
         }
 
         command.setDescription("RelayRace commands");
-        command.setAliases(Arrays.asList("rr"));
+        command.setAliases(Collections.singletonList("rr"));
         command.setPermission("relayrace.command");
         command.setUsage("/relayrace <join|leave|start|next|stop|sort|config>");
-        command.setExecutor(new org.bukkit.command.CommandExecutor() {
-            @Override
-            public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
-                return execute(plugin, gameManager, sender, args);
-            }
-        });
+        command.setExecutor((sender, cmd, label, args) -> execute(plugin, gameManager, sender, args));
 
         try {
             Field commandMapField = Bukkit.getServer().getClass().getDeclaredField("commandMap");
@@ -66,71 +57,68 @@ public final class ClassicCommandHandler implements CommandRegistrar {
         }
 
         String sub = args[0].toLowerCase();
-        if ("config".equals(sub)) {
-            return config(plugin, gm, sender, args);
-        }
-        if ("sort".equals(sub)) {
-            gm.sortWaiting();
-            send(plugin, sender, "command.sort.done");
-            return true;
-        }
-        if ("join".equals(sub)) {
-            List<Player> targets = resolveTargets(plugin, gm, sender, args);
-            if (targets == null) return true;
-            int count = 0;
-            for (Player p : targets) {
-                if (gm.isISpec(p)) {
-                    gm.addToWaiting(p);
-                    count++;
+        switch (sub) {
+            case "config":
+                return config(plugin, gm, sender, args);
+            case "sort":
+                gm.sortWaiting();
+                send(plugin, sender, "command.sort.done");
+                return true;
+            case "join": {
+                List<Player> targets = resolveTargets(plugin, sender, args);
+                if (targets == null) return true;
+                int count = 0;
+                for (Player p : targets) {
+                    if (gm.isISpec(p)) {
+                        gm.addToWaiting(p);
+                        count++;
+                    }
                 }
+                send(plugin, sender, "command.join.added", String.valueOf(count));
+                return true;
             }
-            send(plugin, sender, "command.join.added", String.valueOf(count));
-            return true;
-        }
-        if ("leave".equals(sub)) {
-            List<Player> targets = resolveTargets(plugin, gm, sender, args);
-            if (targets == null) return true;
-            int count = 0;
-            for (Player p : targets) {
-                if (gm.isWaiting(p)) {
-                    gm.removeFromWaiting(p);
-                    count++;
+            case "leave": {
+                List<Player> targets = resolveTargets(plugin, sender, args);
+                if (targets == null) return true;
+                int count = 0;
+                for (Player p : targets) {
+                    if (gm.isWaiting(p)) {
+                        gm.removeFromWaiting(p);
+                        count++;
+                    }
                 }
+                send(plugin, sender, "command.leave.removed", String.valueOf(count));
+                return true;
             }
-            send(plugin, sender, "command.leave.removed", String.valueOf(count));
-            return true;
-        }
-        if ("start".equals(sub)) {
-            if (gm.isRunning()) {
-                send(plugin, sender, "command.start.running");
-            } else if (gm.startGame()) {
-                send(plugin, sender, "command.start.success");
-            } else if (gm.isRunning()) {
-                send(plugin, sender, "command.start.running");
-            } else {
-                send(plugin, sender, "command.start.failed");
-            }
-            return true;
-        }
-        if ("next".equals(sub)) {
-            if (!gm.isRunning()) {
-                send(plugin, sender, "command.next.none");
-            } else if (gm.isPendingRotation()) {
-                send(plugin, sender, "command.next.pending");
-            } else {
-                gm.switchToNextPlayer();
-                send(plugin, sender, "command.next.success");
-            }
-            return true;
-        }
-        if ("stop".equals(sub)) {
-            if (!gm.isRunning()) {
-                send(plugin, sender, "command.stop.none");
-            } else {
-                gm.endGame(false);
-                send(plugin, sender, "command.stop.success");
-            }
-            return true;
+            case "start":
+                if (gm.isRunning()) {
+                    send(plugin, sender, "command.start.running");
+                } else if (gm.startGame()) {
+                    send(plugin, sender, "command.start.success");
+                } else if (gm.isRunning()) {
+                    send(plugin, sender, "command.start.running");
+                } else {
+                    send(plugin, sender, "command.start.failed");
+                }
+                return true;
+            case "next":
+                if (!gm.isRunning()) {
+                    send(plugin, sender, "command.next.none");
+                } else if (gm.isPendingRotation()) {
+                    send(plugin, sender, "command.next.pending");
+                } else {
+                    gm.switchToNextPlayer();
+                    send(plugin, sender, "command.next.success");
+                }
+                return true;
+            case "stop":
+                if (!gm.isRunning()) {
+                    send(plugin, sender, "command.stop.none");
+                } else {
+                    gm.endGame(false);
+                    send(plugin, sender, "command.stop.success");
+                }
+                return true;
         }
 
         send(plugin, sender, "command.select.invalid");
@@ -146,102 +134,95 @@ public final class ClassicCommandHandler implements CommandRegistrar {
 
         String key = args[1].toLowerCase();
 
-        if ("playtime".equals(key)) {
-            if (args.length < 3) {
-                send(plugin, sender, "command.config.playtime.get",
-                    String.valueOf(plugin.getRelayConfig().getPlaytimeSeconds()));
-            } else if (gm.isRunning()) {
-                send(plugin, sender, "command.config.playtime.running");
-            } else {
-                try {
-                    int seconds = Integer.parseInt(args[2]);
-                    gm.setPlaytimeSeconds(seconds);
-                    send(plugin, sender, "command.config.playtime.set", String.valueOf(seconds));
-                } catch (NumberFormatException e) {
-                    send(plugin, sender, "command.select.invalid");
-                }
-            }
-            return true;
-        }
-
-        if ("debug".equals(key)) {
-            boolean enabled = args.length >= 3 ? Boolean.parseBoolean(args[2])
-                : plugin.getRelayConfig().isDebug();
-            if (args.length >= 3) {
-                plugin.getRelayConfig().setDebug(enabled);
-            }
-            send(plugin, sender, "command.config.debug.status", String.valueOf(enabled));
-            return true;
-        }
-
-        if ("loop".equals(key)) {
-            boolean enabled = args.length >= 3 ? Boolean.parseBoolean(args[2])
-                : plugin.getRelayConfig().isLoop();
-            if (args.length >= 3) {
-                plugin.getRelayConfig().setLoop(enabled);
-            }
-            send(plugin, sender, "command.config.loop.status", String.valueOf(enabled));
-            return true;
-        }
-
-        if ("freeze".equals(key)) {
-            boolean enabled = args.length >= 3 ? Boolean.parseBoolean(args[2])
-                : plugin.getRelayConfig().isFreeze();
-            if (args.length >= 3) {
-                plugin.getRelayConfig().setFreeze(enabled);
-            }
-            send(plugin, sender, "command.config.freeze.status", String.valueOf(enabled));
-            return true;
-        }
-
-        if ("externallobby".equals(key)) {
-            boolean enabled = args.length >= 3 ? Boolean.parseBoolean(args[2])
-                : plugin.getRelayConfig().isExternalLobby();
-            if (args.length >= 3) {
-                gm.setExternalLobby(enabled);
-            }
-            send(plugin, sender, "command.config.externallobby.set", String.valueOf(enabled));
-            return true;
-        }
-
-        if ("externallobby-server".equals(key)) {
-            if (args.length < 3) {
-                send(plugin, sender, "command.config.externallobbyServer.status",
-                    plugin.getRelayConfig().getExternalLobbyServer());
-            } else {
-                String server = args[2];
-                gm.setExternalLobbyServer(server);
-                send(plugin, sender, "command.config.externallobbyServer.set", server);
-            }
-            return true;
-        }
-
-        if ("locales".equals(key)) {
-            if (args.length < 3) {
-                send(plugin, sender, "command.config.locales.current",
-                    gm.getTranslator().getCurrentLocale());
-            } else {
-                String locale = args[2];
-                Set<String> available = gm.getTranslator().getAvailableLocales();
-                if (!available.contains(locale)) {
-                    send(plugin, sender, "command.config.locales.invalid",
-                        String.join(", ", available));
+        switch (key) {
+            case "playtime":
+                if (args.length < 3) {
+                    send(plugin, sender, "command.config.playtime.get",
+                            String.valueOf(plugin.getRelayConfig().getPlaytimeSeconds()));
+                } else if (gm.isRunning()) {
+                    send(plugin, sender, "command.config.playtime.running");
                 } else {
-                    plugin.getRelayConfig().setLocale(locale);
-                    gm.getTranslator().loadLocale(locale);
-                    send(plugin, sender, "command.config.locales.changed", locale);
+                    try {
+                        int seconds = Integer.parseInt(args[2]);
+                        gm.setPlaytimeSeconds(seconds);
+                        send(plugin, sender, "command.config.playtime.set", String.valueOf(seconds));
+                    } catch (NumberFormatException e) {
+                        send(plugin, sender, "command.select.invalid");
+                    }
                 }
+                return true;
+            case "debug": {
+                boolean enabled = args.length >= 3 ? Boolean.parseBoolean(args[2])
+                        : plugin.getRelayConfig().isDebug();
+                if (args.length >= 3) {
+                    plugin.getRelayConfig().setDebug(enabled);
+                }
+                send(plugin, sender, "command.config.debug.status", String.valueOf(enabled));
+                return true;
             }
-            return true;
+            case "loop": {
+                boolean enabled = args.length >= 3 ? Boolean.parseBoolean(args[2])
+                        : plugin.getRelayConfig().isLoop();
+                if (args.length >= 3) {
+                    plugin.getRelayConfig().setLoop(enabled);
+                }
+                send(plugin, sender, "command.config.loop.status", String.valueOf(enabled));
+                return true;
+            }
+            case "freeze": {
+                boolean enabled = args.length >= 3 ? Boolean.parseBoolean(args[2])
+                        : plugin.getRelayConfig().isFreeze();
+                if (args.length >= 3) {
+                    plugin.getRelayConfig().setFreeze(enabled);
+                }
+                send(plugin, sender, "command.config.freeze.status", String.valueOf(enabled));
+                return true;
+            }
+            case "externallobby": {
+                boolean enabled = args.length >= 3 ? Boolean.parseBoolean(args[2])
+                        : plugin.getRelayConfig().isExternalLobby();
+                if (args.length >= 3) {
+                    gm.setExternalLobby(enabled);
+                }
+                send(plugin, sender, "command.config.externallobby.set", String.valueOf(enabled));
+                return true;
+            }
+            case "externallobby-server":
+                if (args.length < 3) {
+                    send(plugin, sender, "command.config.externallobbyServer.status",
+                            plugin.getRelayConfig().getExternalLobbyServer());
+                } else {
+                    String server = args[2];
+                    gm.setExternalLobbyServer(server);
+                    send(plugin, sender, "command.config.externallobbyServer.set", server);
+                }
+                return true;
+            case "locales":
+                if (args.length < 3) {
+                    send(plugin, sender, "command.config.locales.current",
+                            gm.getTranslator().getCurrentLocale());
+                } else {
+                    String locale = args[2];
+                    Set<String> available = gm.getTranslator().getAvailableLocales();
+                    if (!available.contains(locale)) {
+                        send(plugin, sender, "command.config.locales.invalid",
+                                String.join(", ", available));
+                    } else {
+                        plugin.getRelayConfig().setLocale(locale);
+                        gm.getTranslator().loadLocale(locale);
+                        send(plugin, sender, "command.config.locales.changed", locale);
+                    }
+                }
+                return true;
         }
 
         send(plugin, sender, "command.select.invalid");
         return true;
     }
 
-    private List<Player> resolveTargets(RelayRacePlugin plugin, GameManager gm,
+    private List<Player> resolveTargets(RelayRacePlugin plugin,
                                         CommandSender sender, String[] args) {
-        List<Player> targets = new ArrayList<Player>();
+        List<Player> targets = new ArrayList<>();
         if (args.length >= 2) {
             for (int i = 1; i < args.length; i++) {
                 Player p = Bukkit.getPlayerExact(args[i]);

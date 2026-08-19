@@ -4,6 +4,8 @@ import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.messaging.PluginMessageListener;
 
+import org.jetbrains.annotations.NotNull;
+
 import top.syshub.relayrace.common.api.Platform;
 
 import java.io.ByteArrayInputStream;
@@ -13,7 +15,6 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
@@ -36,7 +37,7 @@ public class LobbyMessenger implements PluginMessageListener {
     private String detectedServerName;
 
     private final Map<UUID, CompletableFuture<Void>> pendingBringbacks =
-        new ConcurrentHashMap<UUID, CompletableFuture<Void>>();
+            new ConcurrentHashMap<>();
 
     public LobbyMessenger(RelayRacePlugin plugin, GameManager gameManager, Platform platform) {
         this.plugin = plugin;
@@ -62,19 +63,10 @@ public class LobbyMessenger implements PluginMessageListener {
         cancelAllPending();
     }
 
-    public boolean isServerNameKnown() {
-        return detectedServerName != null;
-    }
-
     public void tryAutoDetect(Player player) {
         if (!plugin.getRelayConfig().isExternalLobby()) return;
         if (detectedServerName != null) return;
-        platform.scheduler().runDelayed(plugin, new Runnable() {
-            @Override
-            public void run() {
-                tryAutoDetectNow(player);
-            }
-        }, 20L);
+        platform.scheduler().runDelayed(plugin, () -> tryAutoDetectNow(player), 20L);
     }
 
     private void tryAutoDetectNow(Player player) {
@@ -82,12 +74,7 @@ public class LobbyMessenger implements PluginMessageListener {
         if (detectedServerName != null) return;
         if (!player.isOnline()) return;
         plugin.debug(plugin.getTranslator().plain("logger.debug.getServerQuery", player.getName()));
-        sendBungeeCordMessage(player, new MessageWriter() {
-            @Override
-            public void write(DataOutputStream out) throws IOException {
-                out.writeUTF("GetServer");
-            }
-        });
+        sendBungeeCordMessage(player, out -> out.writeUTF("GetServer"));
     }
 
     public CompletableFuture<Void> bringBack(UUID uuid, String playerName) {
@@ -101,7 +88,7 @@ public class LobbyMessenger implements PluginMessageListener {
             return failedFuture(new IllegalStateException("服务器名称尚未检测"));
         }
 
-        final CompletableFuture<Void> future = new CompletableFuture<Void>();
+        final CompletableFuture<Void> future = new CompletableFuture<>();
         pendingBringbacks.put(uuid, future);
 
         Player sender = findAnyOnlinePlayer();
@@ -111,37 +98,26 @@ public class LobbyMessenger implements PluginMessageListener {
             return failedFuture(new IllegalStateException("没有在线玩家"));
         }
 
-        sendBungeeCordMessage(sender, new MessageWriter() {
-            @Override
-            public void write(DataOutputStream out) throws IOException {
-                out.writeUTF("ConnectOther");
-                out.writeUTF(playerName);
-                out.writeUTF(detectedServerName);
-            }
+        sendBungeeCordMessage(sender, out -> {
+            out.writeUTF("ConnectOther");
+            out.writeUTF(playerName);
+            out.writeUTF(detectedServerName);
         });
 
         plugin.debug(plugin.getTranslator().plain("logger.debug.requestSent", playerName, detectedServerName));
 
-        platform.scheduler().runDelayed(plugin, new Runnable() {
-            @Override
-            public void run() {
-                CompletableFuture<Void> f = pendingBringbacks.remove(uuid);
-                if (f != null) {
-                    f.completeExceptionally(new TimeoutException("bring-back timeout"));
-                }
+        platform.scheduler().runDelayed(plugin, () -> {
+            CompletableFuture<Void> f = pendingBringbacks.remove(uuid);
+            if (f != null) {
+                f.completeExceptionally(new TimeoutException("bring-back timeout"));
             }
         }, BRINGBACK_TIMEOUT_SECONDS * 20L);
 
-        future.whenComplete(new java.util.function.BiConsumer<Void, Throwable>() {
-            @Override
-            public void accept(Void v, Throwable ex) {
-                if (ex instanceof CancellationException) {
-                    // cancelled, nothing to do
-                } else if (ex != null) {
-                    plugin.getLogger().warning(plugin.getTranslator().plain("logger.bringBack.timeout",
-                        playerName, String.valueOf(BRINGBACK_TIMEOUT_SECONDS)));
-                    pendingBringbacks.remove(uuid);
-                }
+        future.whenComplete((v, ex) -> {
+            if (ex != null && !(ex instanceof CancellationException)) {
+                plugin.getLogger().warning(plugin.getTranslator().plain("logger.bringBack.timeout",
+                    playerName, String.valueOf(BRINGBACK_TIMEOUT_SECONDS)));
+                pendingBringbacks.remove(uuid);
             }
         });
 
@@ -159,13 +135,10 @@ public class LobbyMessenger implements PluginMessageListener {
         Player sender = findAnyOnlinePlayer();
         if (sender == null) return;
 
-        sendBungeeCordMessage(sender, new MessageWriter() {
-            @Override
-            public void write(DataOutputStream out) throws IOException {
-                out.writeUTF("Message");
-                out.writeUTF(player.getName());
-                out.writeUTF("[RelayRace] " + plain);
-            }
+        sendBungeeCordMessage(sender, out -> {
+            out.writeUTF("Message");
+            out.writeUTF(player.getName());
+            out.writeUTF("[RelayRace] " + plain);
         });
     }
 
@@ -184,13 +157,13 @@ public class LobbyMessenger implements PluginMessageListener {
     }
 
     public void cancelAllPending() {
-        for (UUID uuid : new HashSet<UUID>(pendingBringbacks.keySet())) {
+        for (UUID uuid : new HashSet<>(pendingBringbacks.keySet())) {
             cancelBringBack(uuid);
         }
     }
 
     @Override
-    public void onPluginMessageReceived(String channel, Player player, byte[] message) {
+    public void onPluginMessageReceived(@NotNull String channel, @NotNull Player player, @NotNull byte[] message) {
         if (!channel.equals(CHANNEL)) return;
 
         try (DataInputStream in = new DataInputStream(new ByteArrayInputStream(message))) {
@@ -209,7 +182,7 @@ public class LobbyMessenger implements PluginMessageListener {
     }
 
     private static <T> CompletableFuture<T> failedFuture(Throwable ex) {
-        CompletableFuture<T> future = new CompletableFuture<T>();
+        CompletableFuture<T> future = new CompletableFuture<>();
         future.completeExceptionally(ex);
         return future;
     }

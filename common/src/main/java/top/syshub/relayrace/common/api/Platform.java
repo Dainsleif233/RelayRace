@@ -69,6 +69,24 @@ public interface Platform {
         player.setBedSpawnLocation(location, true);
     }
 
+    /**
+     * Capture the player's max health. Latest can use the attribute API;
+     * classic falls back to the deprecated but still available method.
+     */
+    @SuppressWarnings("deprecation")
+    default double captureMaxHealth(Player player) {
+        return player.getMaxHealth();
+    }
+
+    /**
+     * Apply the player's max health. Latest can use the attribute API;
+     * classic falls back to the deprecated but still available method.
+     */
+    @SuppressWarnings("deprecation")
+    default void applyMaxHealth(Player player, double maxHealth) {
+        player.setMaxHealth(maxHealth);
+    }
+
     default void registerVersionEvents(RelayRacePlugin plugin, GameManager gameManager) {
     }
 }

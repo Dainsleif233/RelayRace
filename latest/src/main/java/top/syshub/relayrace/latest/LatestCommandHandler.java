@@ -14,7 +14,6 @@ import io.papermc.paper.command.brigadier.argument.ArgumentTypes;
 import io.papermc.paper.command.brigadier.argument.resolvers.selector.PlayerSelectorArgumentResolver;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 
-import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 
 import org.bukkit.command.CommandSender;
@@ -22,7 +21,6 @@ import org.bukkit.entity.Player;
 
 import top.syshub.relayrace.common.GameManager;
 import top.syshub.relayrace.common.RelayRacePlugin;
-import top.syshub.relayrace.common.Translator;
 import top.syshub.relayrace.common.api.CommandRegistrar;
 
 import java.util.Collection;
@@ -51,7 +49,7 @@ public final class LatestCommandHandler implements CommandRegistrar {
                 .then(Commands.literal("playtime")
                     .executes(ctx -> configPlaytimeGet(ctx, plugin, gameManager))
                     .then(Commands.argument("time", IntegerArgumentType.integer(1))
-                        .executes(ctx -> configPlaytimeSet(ctx, plugin, gameManager))))
+                        .executes(ctx -> configPlaytimeSet(ctx, gameManager))))
                 .then(Commands.literal("debug")
                     .executes(ctx -> configDebugGet(ctx, plugin, gameManager))
                     .then(Commands.argument("enable", BoolArgumentType.bool())
@@ -67,11 +65,11 @@ public final class LatestCommandHandler implements CommandRegistrar {
                 .then(Commands.literal("externallobby")
                     .executes(ctx -> configExternalLobbyGet(ctx, plugin, gameManager))
                     .then(Commands.argument("enable", BoolArgumentType.bool())
-                        .executes(ctx -> configExternalLobbySet(ctx, plugin, gameManager))))
+                        .executes(ctx -> configExternalLobbySet(ctx, gameManager))))
                 .then(Commands.literal("externallobby-server")
                     .executes(ctx -> configExternalLobbyServerGet(ctx, plugin, gameManager))
                     .then(Commands.argument("server", StringArgumentType.word())
-                        .executes(ctx -> configExternalLobbyServerSet(ctx, plugin, gameManager))))
+                        .executes(ctx -> configExternalLobbyServerSet(ctx, gameManager))))
                 .then(Commands.literal("locales")
                     .executes(ctx -> configLocalesGet(ctx, gameManager))
                     .then(Commands.argument("locale", StringArgumentType.word())
@@ -101,7 +99,7 @@ public final class LatestCommandHandler implements CommandRegistrar {
     }
 
     private static int configPlaytimeSet(CommandContext<CommandSourceStack> ctx,
-                                          RelayRacePlugin plugin, GameManager gm) {
+                                         GameManager gm) {
         if (gm.isRunning()) {
             send(ctx, gm.getTranslator().format("command.config.playtime.running"));
             return Command.SINGLE_SUCCESS;
@@ -274,7 +272,7 @@ public final class LatestCommandHandler implements CommandRegistrar {
     }
 
     private static int configExternalLobbySet(CommandContext<CommandSourceStack> ctx,
-                                              RelayRacePlugin plugin, GameManager gm) {
+                                              GameManager gm) {
         boolean enabled = ctx.getArgument("enable", Boolean.class);
         gm.setExternalLobby(enabled);
         send(ctx, gm.getTranslator().format("command.config.externallobby.set", String.valueOf(enabled)));
@@ -289,7 +287,7 @@ public final class LatestCommandHandler implements CommandRegistrar {
     }
 
     private static int configExternalLobbyServerSet(CommandContext<CommandSourceStack> ctx,
-                                                    RelayRacePlugin plugin, GameManager gm) {
+                                                    GameManager gm) {
         String server = ctx.getArgument("server", String.class);
         gm.setExternalLobbyServer(server);
         send(ctx, gm.getTranslator().format("command.config.externallobbyServer.set", server));
