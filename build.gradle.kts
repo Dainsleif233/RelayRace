@@ -2,13 +2,7 @@ plugins {
     java
 }
 
-group = "top.syshub"
-version = "1.3"
-
 allprojects {
-    group = "top.syshub"
-    version = "1.3"
-
     repositories {
         maven("https://repo.papermc.io/repository/maven-public/")
         maven("https://hub.spigotmc.org/nexus/content/repositories/snapshots/")

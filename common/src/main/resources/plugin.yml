@@ -1,7 +1,7 @@
 name: RelayRace
 description: Survive in relay until you clear the game.
 author: Dainsleif
-version: '1.3'
+version: '${version}'
 main: top.syshub.relayrace.common.RelayRacePlugin
 api-version: '1.16'
 load: POSTWORLD
