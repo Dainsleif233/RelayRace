@@ -2,6 +2,7 @@ package top.syshub.relayrace.classic;
 
 import org.bukkit.World;
 import org.bukkit.generator.ChunkGenerator;
+import org.jetbrains.annotations.NotNull;
 
 import top.syshub.relayrace.common.LobbyTerrain;
 
@@ -17,7 +18,8 @@ import java.util.Random;
 public final class ClassicLobbyGenerator extends ChunkGenerator {
 
     @Override
-    public ChunkData generateChunkData(World world, Random random, int x, int z, BiomeGrid biome) {
+    @NotNull
+    public ChunkData generateChunkData(@NotNull World world, @NotNull Random random, int x, int z, @NotNull BiomeGrid biome) {
         ChunkData data = createChunkData(world);
         LobbyTerrain.generate(data);
         return data;

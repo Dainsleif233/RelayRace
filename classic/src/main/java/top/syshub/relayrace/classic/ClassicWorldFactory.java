@@ -18,7 +18,7 @@ public final class ClassicWorldFactory implements WorldFactory {
         WorldCreator creator = WorldCreator.name("lobby");
         creator.environment(World.Environment.NORMAL);
         creator.generateStructures(false);
-        // 1.16.1's FlatGeneratorInfo does not reliably honour the settings
+        // 1.16.1's FlatGeneratorInfo does not reliably honor the settings
         // JSON (SPIGOT-5970); use a custom generator so the surface is always
         // at y=64 regardless of the Minecraft version.
         creator.generator(new ClassicLobbyGenerator());
