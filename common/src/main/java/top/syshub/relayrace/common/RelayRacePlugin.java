@@ -27,8 +27,23 @@ public final class RelayRacePlugin extends JavaPlugin {
     }
 
     @Override
+    public void onLoad() {
+        // Resolve the version platform as early as possible so that
+        // version-specific bootstrap hooks (e.g. the CommandAPI initializer on
+        // the classic/1.16 branch) run before onEnable().
+        if (platform == null) {
+            platform = PlatformFactory.load(this);
+        }
+        if (platform != null) {
+            platform.onLoad(this);
+        }
+    }
+
+    @Override
     public void onEnable() {
-        platform = PlatformFactory.load(this);
+        if (platform == null) {
+            platform = PlatformFactory.load(this);
+        }
         if (platform == null) {
             getLogger().severe("Unsupported server version: " + getServer().getBukkitVersion());
             setEnabled(false);

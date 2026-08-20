@@ -14,7 +14,13 @@ import top.syshub.relayrace.common.RelayRacePlugin;
  */
 public interface Platform {
 
-    String id();
+    /**
+     * Version-specific bootstrap hook invoked from {@code RelayRacePlugin#onLoad()},
+     * before any game state is set up. The classic platform uses it to initialize
+     * the shaded CommandAPI ({@code CommandAPI.onLoad}).
+     */
+    default void onLoad(RelayRacePlugin plugin) {
+    }
 
     CommandRegistrar commands();
 

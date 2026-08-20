@@ -29,11 +29,6 @@ public final class LatestPlatform implements Platform {
     public LatestPlatform() {}
 
     @Override
-    public String id() {
-        return "latest";
-    }
-
-    @Override
     public CommandRegistrar commands() {
         return commands;
     }

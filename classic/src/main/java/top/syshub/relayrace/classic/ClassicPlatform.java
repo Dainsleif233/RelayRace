@@ -1,5 +1,8 @@
 package top.syshub.relayrace.classic;
 
+import dev.jorel.commandapi.CommandAPI;
+import dev.jorel.commandapi.CommandAPIConfig;
+
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.world.ChunkLoadEvent;
@@ -17,6 +20,8 @@ import java.util.Arrays;
 
 public final class ClassicPlatform implements Platform {
 
+    private static boolean commandApiLoaded;
+
     private final Scheduler scheduler = new ClassicScheduler();
     private final TickControl tickControl = new ClassicTickControl();
     private final WorldFactory worldFactory = new ClassicWorldFactory();
@@ -26,8 +31,13 @@ public final class ClassicPlatform implements Platform {
     public ClassicPlatform() {}
 
     @Override
-    public String id() {
-        return "classic";
+    public void onLoad(RelayRacePlugin plugin) {
+        // The shaded CommandAPI must be bootstrapped exactly once, from the
+        // plugin's onLoad(), before any of its commands are registered.
+        if (!commandApiLoaded) {
+            CommandAPI.onLoad(new CommandAPIConfig());
+            commandApiLoaded = true;
+        }
     }
 
     @Override
