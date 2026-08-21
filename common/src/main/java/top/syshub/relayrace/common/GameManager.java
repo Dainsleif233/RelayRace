@@ -51,8 +51,8 @@ public class GameManager {
     private CancellableTask timerTask;
     private CancellableTask countdownTask;
 
-    private Team greenTeam;
-    private Team yellowTeam;
+    private Team playingTeam;
+    private Team waitingTeam;
     private boolean countdownActive = false;
 
     private long gameStartTime;
@@ -158,24 +158,24 @@ public class GameManager {
         ScoreboardManager manager = Bukkit.getScoreboardManager();
         if (manager == null) return;
         Scoreboard scoreboard = manager.getMainScoreboard();
-        greenTeam = scoreboard.getTeam("RR_Playing");
-        if (greenTeam == null) {
-            greenTeam = scoreboard.registerNewTeam("RR_Playing");
+        playingTeam = scoreboard.getTeam("RR_Playing");
+        if (playingTeam == null) {
+            playingTeam = scoreboard.registerNewTeam("RR_Playing");
         }
-        greenTeam.setColor(ChatColor.GREEN);
-        greenTeam.setOption(Team.Option.NAME_TAG_VISIBILITY, Team.OptionStatus.ALWAYS);
+        playingTeam.setColor(ChatColor.GREEN);
+        playingTeam.setOption(Team.Option.NAME_TAG_VISIBILITY, Team.OptionStatus.ALWAYS);
 
-        yellowTeam = scoreboard.getTeam("RR_Waiting");
-        if (yellowTeam == null) {
-            yellowTeam = scoreboard.registerNewTeam("RR_Waiting");
+        waitingTeam = scoreboard.getTeam("RR_Waiting");
+        if (waitingTeam == null) {
+            waitingTeam = scoreboard.registerNewTeam("RR_Waiting");
         }
-        yellowTeam.setColor(ChatColor.YELLOW);
-        yellowTeam.setOption(Team.Option.NAME_TAG_VISIBILITY, Team.OptionStatus.ALWAYS);
+        waitingTeam.setColor(ChatColor.YELLOW);
+        waitingTeam.setOption(Team.Option.NAME_TAG_VISIBILITY, Team.OptionStatus.ALWAYS);
     }
 
     private void assignTeam(Player player, Team team) {
-        greenTeam.removeEntry(player.getName());
-        yellowTeam.removeEntry(player.getName());
+        playingTeam.removeEntry(player.getName());
+        waitingTeam.removeEntry(player.getName());
         team.addEntry(player.getName());
     }
 
@@ -264,7 +264,7 @@ public class GameManager {
                     break;
                 }
             }
-            assignTeam(player, yellowTeam);
+            assignTeam(player, waitingTeam);
             updateWaitingPrefixes();
             addPlayerToBossBar(player);
 
@@ -293,7 +293,7 @@ public class GameManager {
     public void addToWaiting(Player player) {
         removeFromAllGroups(player);
         waitingPlayers.add(player);
-        assignTeam(player, yellowTeam);
+        assignTeam(player, waitingTeam);
         addPlayerToBossBar(player);
 
         if (isRunning()) {
@@ -306,7 +306,7 @@ public class GameManager {
 
     public void removeFromWaiting(Player player) {
         waitingPlayers.remove(player);
-        yellowTeam.removeEntry(player.getName());
+        waitingTeam.removeEntry(player.getName());
         clearPlayerDisplay(player);
 
         if (isRunning()) {
@@ -318,8 +318,8 @@ public class GameManager {
 
     private void removeFromAllGroups(Player player) {
         waitingPlayers.removeIf(p -> p.getUniqueId().equals(player.getUniqueId()));
-        greenTeam.removeEntry(player.getName());
-        yellowTeam.removeEntry(player.getName());
+        playingTeam.removeEntry(player.getName());
+        waitingTeam.removeEntry(player.getName());
         clearPlayerDisplay(player);
         if (activePlayer != null && activePlayer.equals(player)) {
             activePlayer = null;
@@ -387,7 +387,7 @@ public class GameManager {
         gameStartTime = System.currentTimeMillis();
 
         activePlayer = waitingPlayers.remove(0);
-        assignTeam(activePlayer, greenTeam);
+        assignTeam(activePlayer, playingTeam);
         activePlayer.setGameMode(GameMode.SURVIVAL);
 
         World world = Bukkit.getWorlds().get(0);
@@ -464,11 +464,11 @@ public class GameManager {
             oldActive.setFallDistance(0);
             lobbyManager.teleportToLobby(oldActive);
             waitingPlayers.add(oldActive);
-            assignTeam(oldActive, yellowTeam);
+            assignTeam(oldActive, waitingTeam);
         } else {
             oldActive.setGameMode(GameMode.SPECTATOR);
             clearPlayerDisplay(oldActive);
-            greenTeam.removeEntry(oldActive.getName());
+            playingTeam.removeEntry(oldActive.getName());
         }
 
         updateWaitingPrefixes();
@@ -579,7 +579,7 @@ public class GameManager {
         next.setGameMode(GameMode.SURVIVAL);
         platform.setHasSeenWinScreen(next, true);
         plugin.debug("[activateNextPlayer] next=" + next.getName() + " setHasSeenWinScreen called");
-        assignTeam(next, greenTeam);
+        assignTeam(next, playingTeam);
         applyActiveDisplay(next);
 
         updateWaitingPrefixes();
@@ -652,7 +652,7 @@ public class GameManager {
         for (Player p : waitingPlayers) {
             p.setGameMode(GameMode.SPECTATOR);
             clearPlayerDisplay(p);
-            yellowTeam.removeEntry(p.getName());
+            waitingTeam.removeEntry(p.getName());
         }
         waitingPlayers.clear();
         offlineWaiting.clear();
@@ -938,7 +938,7 @@ public class GameManager {
         } else if (isWaiting(player)) {
             if (isRunning()) {
                 offlineWaiting.add(player.getUniqueId());
-                yellowTeam.removeEntry(player.getName());
+                waitingTeam.removeEntry(player.getName());
                 clearPlayerDisplay(player);
             } else {
                 waitingPlayers.remove(player);
@@ -946,8 +946,8 @@ public class GameManager {
             }
         }
 
-        greenTeam.removeEntry(player.getName());
-        yellowTeam.removeEntry(player.getName());
+        playingTeam.removeEntry(player.getName());
+        waitingTeam.removeEntry(player.getName());
     }
 
     // --- Cleanup ---
