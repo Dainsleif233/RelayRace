@@ -115,6 +115,13 @@ public class EventListener implements Listener {
             plugin.debug("[portal] early return - not from THE_END (fromWorld=" + (event.getFrom().getWorld() != null ? event.getFrom().getWorld().getName() + "/" + event.getFrom().getWorld().getEnvironment() : "null") + ")");
             return;
         }
+        // 目的地必须离开末地维度，防止插件/命令传送、末影之眼模型顶起等
+        // 产生 UNKNOWN cause 的短距位移触发误判
+        if (event.getTo() == null || event.getTo().getWorld() == null
+            || event.getTo().getWorld().getEnvironment() == World.Environment.THE_END) {
+            plugin.debug("[portal] early return - destination still in THE_END (to=" + event.getTo() + ")");
+            return;
+        }
 
         if (event.getCause() != PlayerTeleportEvent.TeleportCause.END_PORTAL
             && event.getCause() != PlayerTeleportEvent.TeleportCause.UNKNOWN) {
