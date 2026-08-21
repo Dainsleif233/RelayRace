@@ -158,16 +158,16 @@ public class GameManager {
         ScoreboardManager manager = Bukkit.getScoreboardManager();
         if (manager == null) return;
         Scoreboard scoreboard = manager.getMainScoreboard();
-        greenTeam = scoreboard.getTeam("RR_Green");
+        greenTeam = scoreboard.getTeam("RR_Playing");
         if (greenTeam == null) {
-            greenTeam = scoreboard.registerNewTeam("RR_Green");
+            greenTeam = scoreboard.registerNewTeam("RR_Playing");
         }
         greenTeam.setColor(ChatColor.GREEN);
         greenTeam.setOption(Team.Option.NAME_TAG_VISIBILITY, Team.OptionStatus.ALWAYS);
 
-        yellowTeam = scoreboard.getTeam("RR_Yellow");
+        yellowTeam = scoreboard.getTeam("RR_Waiting");
         if (yellowTeam == null) {
-            yellowTeam = scoreboard.registerNewTeam("RR_Yellow");
+            yellowTeam = scoreboard.registerNewTeam("RR_Waiting");
         }
         yellowTeam.setColor(ChatColor.YELLOW);
         yellowTeam.setOption(Team.Option.NAME_TAG_VISIBILITY, Team.OptionStatus.ALWAYS);
