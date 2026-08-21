@@ -481,6 +481,7 @@ public class GameManager {
                 final PendingRotation pr = new PendingRotation(uuid, snapshot, oldActive,
                     oldVehicle, oldPassengers, oldShoulderLeft, oldShoulderRight);
                 pendingRotation = pr;
+                stopTimer();
 
                 final CompletableFuture<Void> future = lobbyMessenger.bringBack(uuid, name);
 
@@ -489,10 +490,8 @@ public class GameManager {
                     removeByUuid(uuid);
                     offlineWaiting.remove(uuid);
                     updateWaitingPrefixes();
-                    skipOfflinePlayers();
-                    if (waitingPlayers.isEmpty() && activePlayer == null) {
-                        endGame(false);
-                    }
+                    activateOrEndGame(snapshot, oldActive,
+                        oldVehicle, oldPassengers, oldShoulderLeft, oldShoulderRight);
                     return;
                 }
 
@@ -509,10 +508,9 @@ public class GameManager {
                         removeByUuid(uuid);
                         offlineWaiting.remove(uuid);
                         updateWaitingPrefixes();
-                        skipOfflinePlayers();
-                        if (waitingPlayers.isEmpty() && activePlayer == null) {
-                            endGame(false);
-                        }
+                        activateOrEndGame(pr.snapshot, pr.oldActive,
+                            pr.oldVehicle, pr.oldPassengers,
+                            pr.oldShoulderLeft, pr.oldShoulderRight);
                     } else {
                         completeRotationAfterBringback(uuid);
                     }
@@ -525,14 +523,7 @@ public class GameManager {
             updateWaitingPrefixes();
         }
 
-        if (waitingPlayers.isEmpty()) {
-            activePlayer = null;
-            endGame(false);
-            return;
-        }
-
-        Player next = waitingPlayers.remove(0);
-        activateNextPlayer(snapshot, oldActive, next,
+        activateOrEndGame(snapshot, oldActive,
             oldVehicle, oldPassengers, oldShoulderLeft, oldShoulderRight);
     }
 
@@ -600,6 +591,7 @@ public class GameManager {
             startCountdown(10, next, () -> platform.ui().sendTitle(next,
                 plugin.getTranslator().format("game.go.title"), "", 0, 10, 6));
         }
+        startTimer();
     }
 
     private void skipOfflinePlayers() {
@@ -612,6 +604,27 @@ public class GameManager {
 
     private void removeByUuid(UUID uuid) {
         waitingPlayers.removeIf(p -> p.getUniqueId().equals(uuid));
+    }
+
+    /**
+     * Pick the next online player from the waiting queue and activate them,
+     * or end the game if none remain. Extracted so that both the normal
+     * switchToNextPlayer path and the bringBack-failure path can reuse it.
+     */
+    private void activateOrEndGame(PlayerData snapshot, Player oldActive,
+                                    Entity oldVehicle, List<Entity> oldPassengers,
+                                    Entity oldShoulderLeft, Entity oldShoulderRight) {
+        skipOfflinePlayers();
+
+        if (waitingPlayers.isEmpty()) {
+            activePlayer = null;
+            endGame(false);
+            return;
+        }
+
+        Player next = waitingPlayers.remove(0);
+        activateNextPlayer(snapshot, oldActive, next,
+            oldVehicle, oldPassengers, oldShoulderLeft, oldShoulderRight);
     }
 
     public void endGame(boolean wonByPortal) {

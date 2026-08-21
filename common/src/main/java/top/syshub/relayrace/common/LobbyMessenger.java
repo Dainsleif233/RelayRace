@@ -88,15 +88,14 @@ public class LobbyMessenger implements PluginMessageListener {
             return failedFuture(new IllegalStateException("服务器名称尚未检测"));
         }
 
-        final CompletableFuture<Void> future = new CompletableFuture<>();
-        pendingBringbacks.put(uuid, future);
-
         Player sender = findAnyOnlinePlayer();
         if (sender == null) {
             plugin.getLogger().warning(plugin.getTranslator().plain("logger.bringBack.noOnlinePlayer", playerName));
-            pendingBringbacks.remove(uuid);
             return failedFuture(new IllegalStateException("没有在线玩家"));
         }
+
+        final CompletableFuture<Void> future = new CompletableFuture<>();
+        pendingBringbacks.put(uuid, future);
 
         sendBungeeCordMessage(sender, out -> {
             out.writeUTF("ConnectOther");
