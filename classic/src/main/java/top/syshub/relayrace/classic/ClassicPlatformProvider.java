@@ -19,6 +19,6 @@ public final class ClassicPlatformProvider implements PlatformProvider {
 
     @Override
     public Platform create(RelayRacePlugin plugin) {
-        return new ClassicPlatform();
+        return new ClassicPlatform(plugin);
     }
 }

@@ -398,6 +398,7 @@ public class GameManager {
 
         PlayerData.reset(activePlayer, platform);
         platform.setHasSeenWinScreen(activePlayer, true);
+        plugin.debug("[startGame] activePlayer=" + activePlayer.getName() + " setHasSeenWinScreen called");
         double maxHealth = platform.captureMaxHealth(activePlayer);
         activePlayer.setHealth(maxHealth);
         activePlayer.setFoodLevel(20);
@@ -586,6 +587,7 @@ public class GameManager {
 
         next.setGameMode(GameMode.SURVIVAL);
         platform.setHasSeenWinScreen(next, true);
+        plugin.debug("[activateNextPlayer] next=" + next.getName() + " setHasSeenWinScreen called");
         assignTeam(next, greenTeam);
         applyActiveDisplay(next);
 
@@ -669,20 +671,30 @@ public class GameManager {
     }
 
     public void winGame(Player player, Location portalLoc) {
+        plugin.debug("[winGame] entered, player=" + (player != null ? player.getName() : "null") + " isRunning=" + isRunning() + " activePlayer=" + (activePlayer != null ? activePlayer.getName() : "null"));
         if (!isRunning() || !player.equals(activePlayer)) return;
-        if (portalLoc != null && portalLoc.getWorld() != null) {
-            for (int x = -5; x <= 5; x++) {
-                for (int y = -1; y <= 2; y++) {
-                    for (int z = -5; z <= 5; z++) {
-                        Location check = portalLoc.clone().add(x, y, z);
-                        if (check.getBlock().getType() == Material.END_PORTAL) {
-                            check.getBlock().setType(Material.AIR);
-                        }
+        destroyEndPortalBlocks(portalLoc);
+        endGame(true);
+    }
+
+    /**
+     * Destroy End portal blocks in an 11×4×11 area around the given location
+     * to prevent re-triggering. The classic 1.16.1 platform calls this from
+     * its respawn-based win detection before the player respawns back at the
+     * portal spot.
+     */
+    public void destroyEndPortalBlocks(Location portalLoc) {
+        if (portalLoc == null || portalLoc.getWorld() == null) return;
+        for (int x = -5; x <= 5; x++) {
+            for (int y = -1; y <= 2; y++) {
+                for (int z = -5; z <= 5; z++) {
+                    Location check = portalLoc.clone().add(x, y, z);
+                    if (check.getBlock().getType() == Material.END_PORTAL) {
+                        check.getBlock().setType(Material.AIR);
                     }
                 }
             }
         }
-        endGame(true);
     }
 
     private void collectCraftingDrops(Player player) {
