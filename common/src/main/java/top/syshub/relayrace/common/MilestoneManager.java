@@ -9,8 +9,6 @@ import org.bukkit.scoreboard.Objective;
 import org.bukkit.scoreboard.Scoreboard;
 import org.bukkit.scoreboard.ScoreboardManager;
 
-import top.syshub.relayrace.common.api.Platform;
-
 import java.util.ArrayList;
 import java.util.List;
 
@@ -67,7 +65,6 @@ public class MilestoneManager {
     private static final int SCORE_FIRST_MILESTONE = 12;
 
     private final GameManager gameManager;
-    private final Platform platform;
     private final RelayRacePlugin plugin;
 
     // Scoreboard handles
@@ -99,9 +96,8 @@ public class MilestoneManager {
         }
     }
 
-    public MilestoneManager(GameManager gameManager, Platform platform, RelayRacePlugin plugin) {
+    public MilestoneManager(GameManager gameManager, RelayRacePlugin plugin) {
         this.gameManager = gameManager;
-        this.platform = platform;
         this.plugin = plugin;
     }
 
@@ -186,10 +182,6 @@ public class MilestoneManager {
         String name = current != null ? current.getName() : lastActivePlayerName;
         if (name == null) return;
         achieveWithName(MilestoneType.DEFEAT_DRAGON, name);
-    }
-
-    public boolean isActive() {
-        return active;
     }
 
     // ======================================================================

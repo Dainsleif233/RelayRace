@@ -28,6 +28,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CancellationException;
@@ -97,7 +98,7 @@ public class GameManager {
         this.lobbyManager = lobbyManager;
         this.config = config;
         this.platform = platform;
-        this.milestoneManager = new MilestoneManager(this, platform, plugin);
+        this.milestoneManager = new MilestoneManager(this, plugin);
         setupTeams();
     }
 
@@ -148,7 +149,7 @@ public class GameManager {
     }
 
     public boolean isActivePlayer(Player player) {
-        return player.equals(activePlayer);
+        return Objects.equals(player, activePlayer);
     }
 
     public boolean isWaiting(Player player) {
@@ -696,7 +697,7 @@ public class GameManager {
 
     public void winGame(Player player, Location portalLoc) {
         plugin.debug("[winGame] entered, player=" + (player != null ? player.getName() : "null") + " isRunning=" + isRunning() + " activePlayer=" + (activePlayer != null ? activePlayer.getName() : "null"));
-        if (!isRunning() || !player.equals(activePlayer)) return;
+        if (!isRunning() || !Objects.equals(player, activePlayer)) return;
         destroyEndPortalBlocks(portalLoc);
         milestoneManager.onClearGame(player);
         endGame(true);
