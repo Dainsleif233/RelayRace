@@ -58,6 +58,7 @@ milestone.status.entered_fortress: "Entered nether fortress"
 milestone.status.going_to_stronghold: "Heading to stronghold"
 milestone.status.entered_stronghold: "Entered stronghold"
 milestone.status.entered_end: "Entered end"
+milestone.status.cleared: "Game cleared"
 
 # --- Console / Debug Logs ---
 

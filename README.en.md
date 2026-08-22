@@ -64,7 +64,7 @@ Board contents:
 | Defeat ender dragon | Ender dragon killed (any source) | ✓ | — |
 | Clear game | Game cleared (`winGame`) | ✓ | — |
 
-> Note: Defeating the ender dragon and clearing the game do not change the "Current progress" status (status stops at "Entered end"); they only add a display line.
+> Note: Defeating the ender dragon does not change the "Current progress" status (status stops at "Entered end"); it only adds a display line. Clearing the game updates the status to "Game cleared".
 
 ## License
 

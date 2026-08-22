@@ -27,7 +27,7 @@ public enum MilestoneType {
     REACH_STRONGHOLD("milestone.reach_stronghold", "milestone.status.entered_stronghold", 4),
     ENTER_END("milestone.enter_end", "milestone.status.entered_end", 5),
     DEFEAT_DRAGON("milestone.defeat_dragon", null, -1),
-    CLEAR_GAME("milestone.clear_game", null, -1);
+    CLEAR_GAME("milestone.clear_game", "milestone.status.cleared", 6);
 
     private final String labelKey;
     private final String statusKey;

@@ -392,11 +392,11 @@ public class GameManager {
         setupTeams();
         gameState = GameState.RUNNING;
         gameStartTime = System.currentTimeMillis();
-        milestoneManager.onGameStart(activePlayer);
 
         activePlayer = waitingPlayers.remove(0);
         assignTeam(activePlayer, playingTeam);
         activePlayer.setGameMode(GameMode.SURVIVAL);
+        milestoneManager.onGameStart(activePlayer);
 
         World world = Bukkit.getWorlds().get(0);
         Location worldSpawn = world.getSpawnLocation();

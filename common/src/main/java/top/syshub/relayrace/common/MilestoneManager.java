@@ -46,7 +46,7 @@ public class MilestoneManager {
     /** 隔墙有眼 — entered a stronghold (followed an ender eye). */
     static final String KEY_STRONGHOLD = "minecraft:story/follow_ender_eye";
 
-    private static final String OBJECTIVE_NAME = "relayrace_milestone";
+    private static final String OBJECTIVE_NAME = "rr_milestone";
 
     public static boolean isBastionKey(String key) {
         return KEY_BASTION.equals(key);
@@ -177,11 +177,19 @@ public class MilestoneManager {
     }
 
     public void onEnderDragonDeath() {
+        plugin.debug("[milestone] onEnderDragonDeath: active=" + active
+            + " activePlayer=" + (gameManager.getActivePlayer() != null
+                ? gameManager.getActivePlayer().getName() : "null")
+            + " lastActive=" + lastActivePlayerName);
         if (!active) return;
         Player current = gameManager.getActivePlayer();
         String name = current != null ? current.getName() : lastActivePlayerName;
         if (name == null) return;
         achieveWithName(MilestoneType.DEFEAT_DRAGON, name);
+    }
+
+    public boolean isActive() {
+        return active;
     }
 
     // ======================================================================
@@ -227,7 +235,6 @@ public class MilestoneManager {
     //  Scoreboard rendering
     // ======================================================================
 
-    @SuppressWarnings("deprecation")
     private void createBoard() {
         ScoreboardManager manager = Bukkit.getScoreboardManager();
         if (manager == null) return;

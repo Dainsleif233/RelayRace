@@ -58,6 +58,7 @@ milestone.status.entered_fortress: "已进入下界要塞"
 milestone.status.going_to_stronghold: "前往要塞中"
 milestone.status.entered_stronghold: "已进入要塞"
 milestone.status.entered_end: "已进入末地"
+milestone.status.cleared: "已通关游戏"
 
 # --- 控制台/调试日志 ---
 
