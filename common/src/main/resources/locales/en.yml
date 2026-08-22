@@ -38,6 +38,27 @@ game.end.over: "<red>Game Over"
 game.end.subtitle: "<white>Total time: {time}"
 game.reminder.next: "<yellow>You are next. {seconds} seconds remaining."
 
+# --- Milestones ---
+
+milestone.title: "Milestones"
+milestone.current_player: "Current player"
+milestone.current_status: "Current progress"
+milestone.start_game: "Start game"
+milestone.enter_nether: "Enter nether"
+milestone.reach_bastion: "Reach bastion remnant"
+milestone.reach_fortress: "Reach nether fortress"
+milestone.reach_stronghold: "Reach stronghold"
+milestone.enter_end: "Enter end"
+milestone.defeat_dragon: "Defeat ender dragon"
+milestone.clear_game: "Clear game"
+milestone.status.started: "Game started"
+milestone.status.entered_nether: "Entered nether"
+milestone.status.entered_bastion: "Entered bastion remnant"
+milestone.status.entered_fortress: "Entered nether fortress"
+milestone.status.going_to_stronghold: "Heading to stronghold"
+milestone.status.entered_stronghold: "Entered stronghold"
+milestone.status.entered_end: "Entered end"
+
 # --- Console / Debug Logs ---
 
 logger.plugin.enabled: "RelayRace enabled"

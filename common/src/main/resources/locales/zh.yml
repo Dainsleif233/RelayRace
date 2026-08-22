@@ -38,6 +38,27 @@ game.end.over: "<red>游戏结束"
 game.end.subtitle: "<white>总用时: {time}"
 game.reminder.next: "<yellow>即将轮到您上场，剩余 {seconds} 秒。"
 
+# --- 里程碑 ---
+
+milestone.title: "里程碑"
+milestone.current_player: "当前玩家"
+milestone.current_status: "当前进度"
+milestone.start_game: "开始游戏"
+milestone.enter_nether: "进入下界"
+milestone.reach_bastion: "抵达堡垒遗迹"
+milestone.reach_fortress: "抵达下界要塞"
+milestone.reach_stronghold: "抵达要塞"
+milestone.enter_end: "进入末地"
+milestone.defeat_dragon: "击败末影龙"
+milestone.clear_game: "通关游戏"
+milestone.status.started: "已开始游戏"
+milestone.status.entered_nether: "已进入下界"
+milestone.status.entered_bastion: "已进入堡垒遗迹"
+milestone.status.entered_fortress: "已进入下界要塞"
+milestone.status.going_to_stronghold: "前往要塞中"
+milestone.status.entered_stronghold: "已进入要塞"
+milestone.status.entered_end: "已进入末地"
+
 # --- 控制台/调试日志 ---
 
 logger.plugin.enabled: "RelayRace 已启用"

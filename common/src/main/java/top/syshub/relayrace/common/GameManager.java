@@ -66,6 +66,8 @@ public class GameManager {
     private final Map<UUID, Set<UUID>> petOwnershipIndex = new HashMap<>();
     private final Map<UUID, UUID> pendingPetTransfers = new HashMap<>();
 
+    private final MilestoneManager milestoneManager;
+
     private static class PendingRotation {
         final UUID playerUuid;
         final PlayerData snapshot;
@@ -95,7 +97,12 @@ public class GameManager {
         this.lobbyManager = lobbyManager;
         this.config = config;
         this.platform = platform;
+        this.milestoneManager = new MilestoneManager(this, platform, plugin);
         setupTeams();
+    }
+
+    public MilestoneManager getMilestoneManager() {
+        return milestoneManager;
     }
 
     public Translator getTranslator() {
@@ -385,6 +392,7 @@ public class GameManager {
         setupTeams();
         gameState = GameState.RUNNING;
         gameStartTime = System.currentTimeMillis();
+        milestoneManager.onGameStart(activePlayer);
 
         activePlayer = waitingPlayers.remove(0);
         assignTeam(activePlayer, playingTeam);
@@ -581,6 +589,7 @@ public class GameManager {
         plugin.debug("[activateNextPlayer] next=" + next.getName() + " setHasSeenWinScreen called");
         assignTeam(next, playingTeam);
         applyActiveDisplay(next);
+        milestoneManager.onActivePlayerChange(next);
 
         updateWaitingPrefixes();
         remainingTicks = config.getTurnDuration();
@@ -630,6 +639,8 @@ public class GameManager {
     public void endGame(boolean wonByPortal) {
         if (gameState != GameState.RUNNING) return;
         gameState = GameState.IDLE;
+
+        milestoneManager.onGameEnd();
 
         cancelCountdown();
         stopTimer();
@@ -687,6 +698,7 @@ public class GameManager {
         plugin.debug("[winGame] entered, player=" + (player != null ? player.getName() : "null") + " isRunning=" + isRunning() + " activePlayer=" + (activePlayer != null ? activePlayer.getName() : "null"));
         if (!isRunning() || !player.equals(activePlayer)) return;
         destroyEndPortalBlocks(portalLoc);
+        milestoneManager.onClearGame(player);
         endGame(true);
     }
 
@@ -965,5 +977,6 @@ public class GameManager {
         }
         petOwnershipIndex.clear();
         pendingPetTransfers.clear();
+        milestoneManager.disable();
     }
 }

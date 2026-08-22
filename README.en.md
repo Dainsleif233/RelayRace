@@ -42,6 +42,30 @@ external-lobby-server: "" # external lobby server (Velocity sub-server name)
 
 When external lobby mode is enabled (`external-lobby: true`), when it's an external lobby player's turn, they are automatically recalled to the game server.
 
+## Milestone Scoreboard
+
+When the game starts (`/rr start`), a **Milestones** scoreboard appears on every player's sidebar, recording the key relay checkpoints. The board does not disappear when the game ends (naturally or via `/rr stop`) — it persists until the next game resets it.
+
+Board contents:
+
+- **Current player**: the active player currently playing
+- **Current progress**: the current stage status, sequentially overwritten, skippable (entering bastion remnant and entering nether fortress are interchangeable)
+- **Milestone list**: one line per achieved checkpoint, showing its label, the achieving player, and the total play time at that moment
+
+| Milestone | Trigger | Display line | Status change |
+|-----------|---------|--------------|---------------|
+| Start game | Game starts (`/rr start`) | ✓ | Game started |
+| Enter nether | Active player reaches the Nether | ✓ | Entered nether |
+| Reach bastion remnant | Active player gets the "光辉岁月" (`nether/find_bastion`) advancement | ✓ | Entered bastion remnant |
+| Reach nether fortress | Active player gets the "阴森的要塞" (`nether/find_fortress`) advancement | ✓ | Entered nether fortress |
+| Heading to stronghold | Active player successfully throws an ender eye | ✗ | Heading to stronghold |
+| Reach stronghold | Active player gets the "隔墙有眼" (`story/follow_ender_eye`) advancement | ✓ | Entered stronghold |
+| Enter end | Active player reaches the End | ✓ | Entered end |
+| Defeat ender dragon | Ender dragon killed (any source) | ✓ | — |
+| Clear game | Game cleared (`winGame`) | ✓ | — |
+
+> Note: Defeating the ender dragon and clearing the game do not change the "Current progress" status (status stops at "Entered end"); they only add a display line.
+
 ## License
 
 This project is open-source under the [GPL v3](https://www.gnu.org/licenses/gpl-3.0.html) license.

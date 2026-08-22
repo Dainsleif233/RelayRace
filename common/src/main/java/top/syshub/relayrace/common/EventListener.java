@@ -2,14 +2,20 @@ package top.syshub.relayrace.common;
 
 import org.bukkit.Location;
 import org.bukkit.World;
+import org.bukkit.entity.EnderDragon;
+import org.bukkit.entity.EnderSignal;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Tameable;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDeathEvent;
+import org.bukkit.event.entity.EntitySpawnEvent;
 import org.bukkit.event.entity.EntityTameEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
+import org.bukkit.event.player.PlayerAdvancementDoneEvent;
+import org.bukkit.event.player.PlayerChangedWorldEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
@@ -140,6 +146,36 @@ public class EventListener implements Listener {
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onPlayerChangedWorld(PlayerChangedWorldEvent event) {
+        Player player = event.getPlayer();
+        gameManager.getMilestoneManager().onWorldChange(player, player.getWorld());
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onPlayerAdvancementDone(PlayerAdvancementDoneEvent event) {
+        Player player = event.getPlayer();
+        String key = event.getAdvancement().getKey().toString();
+        if (MilestoneManager.isBastionKey(key)) {
+            gameManager.getMilestoneManager().onAdvancement(player, MilestoneType.REACH_BASTION);
+        } else if (MilestoneManager.isFortressKey(key)) {
+            gameManager.getMilestoneManager().onAdvancement(player, MilestoneType.REACH_FORTRESS);
+        } else if (MilestoneManager.isStrongholdKey(key)) {
+            gameManager.getMilestoneManager().onAdvancement(player, MilestoneType.REACH_STRONGHOLD);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onEntitySpawn(EntitySpawnEvent event) {
+        Entity entity = event.getEntity();
+        if (!(entity instanceof EnderSignal)) return;
+        Player active = gameManager.getActivePlayer();
+        if (active == null || !gameManager.isRunning()) return;
+        if (!entity.getWorld().equals(active.getWorld())) return;
+        if (entity.getLocation().distance(active.getLocation()) > 10.0) return;
+        gameManager.getMilestoneManager().onEnderEyeUse(active);
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onEntityTame(EntityTameEvent event) {
         if (event.getOwner() instanceof Player) {
             Player player = (Player) event.getOwner();
@@ -151,6 +187,9 @@ public class EventListener implements Listener {
     public void onEntityDeath(EntityDeathEvent event) {
         if (event.getEntity() instanceof Tameable) {
             gameManager.onEntityDeath(event.getEntity().getUniqueId());
+        }
+        if (event.getEntity() instanceof EnderDragon) {
+            gameManager.getMilestoneManager().onEnderDragonDeath();
         }
     }
 }
