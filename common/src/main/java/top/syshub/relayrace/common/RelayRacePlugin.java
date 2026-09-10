@@ -2,9 +2,11 @@ package top.syshub.relayrace.common;
 
 import org.bukkit.GameRule;
 import org.bukkit.World;
+import org.bukkit.plugin.ServicePriority;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import top.syshub.relayrace.common.api.Platform;
+import top.syshub.relayrace.common.api.RelayRaceApi;
 
 public final class RelayRacePlugin extends JavaPlugin {
 
@@ -13,6 +15,7 @@ public final class RelayRacePlugin extends JavaPlugin {
     private LobbyMessenger lobbyMessenger;
     private RelayRaceConfig config;
     private Platform platform;
+    private RelayRaceApi api;
 
     public Translator getTranslator() {
         return translator;
@@ -24,6 +27,14 @@ public final class RelayRacePlugin extends JavaPlugin {
 
     public Platform getPlatform() {
         return platform;
+    }
+
+    /**
+     * Public API for external plugins. Also available via
+     * {@link RelayRaceApi#get()} / Bukkit ServicesManager.
+     */
+    public RelayRaceApi getApi() {
+        return api;
     }
 
     @Override
@@ -61,6 +72,9 @@ public final class RelayRacePlugin extends JavaPlugin {
         config.load();
 
         gameManager = new GameManager(this, lobbyManager, config, platform);
+        api = new RelayRaceService(gameManager);
+        getServer().getServicesManager().register(
+            RelayRaceApi.class, api, this, ServicePriority.Normal);
 
         lobbyMessenger = new LobbyMessenger(this, gameManager, platform);
         lobbyMessenger.register();
@@ -82,6 +96,8 @@ public final class RelayRacePlugin extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        getServer().getServicesManager().unregisterAll(this);
+        api = null;
         if (gameManager != null) {
             gameManager.disable();
         }

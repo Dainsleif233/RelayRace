@@ -42,6 +42,31 @@ external-lobby-server: "" # external lobby server (Velocity sub-server name)
 
 When external lobby mode is enabled (`external-lobby: true`), when it's an external lobby player's turn, they are automatically recalled to the game server.
 
+## Public API
+
+Other plugins can obtain `RelayRaceApi` via Bukkit ServicesManager to adjust the active player's remaining play time. Call all methods from the main thread.
+
+```java
+import top.syshub.relayrace.common.api.RelayRaceApi;
+
+RelayRaceApi api = RelayRaceApi.get(); // or ((RelayRacePlugin) plugin).getApi()
+if (api != null && api.isGameRunning()) {
+    api.addRemainingSeconds(30);        // add 30 seconds
+    api.subtractRemainingSeconds(10);   // remove 10 seconds
+    int left = api.getRemainingSeconds();
+}
+```
+
+| Method                          | Description                                                                                           |
+|---------------------------------|-------------------------------------------------------------------------------------------------------|
+| `isGameRunning()`               | Whether a game is currently running                                                                   |
+| `getActivePlayer()`             | Current active player, or `null`                                                                      |
+| `getRemainingSeconds()`         | Remaining seconds of the current turn (0 if not running)                                              |
+| `addRemainingSeconds(int)`      | Add remaining time (seconds, must be positive)                                                        |
+| `subtractRemainingSeconds(int)` | Remove remaining time (seconds, must be positive); reaching 0 switches to the next player immediately |
+
+`addRemainingSeconds` / `subtractRemainingSeconds` return `false` when no game is running or the argument is `<= 0`.
+
 ## Milestone Scoreboard
 
 When the game starts (`/rr start`), a **Milestones** scoreboard appears on every player's sidebar, recording the key relay checkpoints. The board does not disappear when the game ends (naturally or via `/rr stop`) — it persists until the next game resets it.
@@ -52,17 +77,17 @@ Board contents:
 - **Current progress**: the current stage status, sequentially overwritten, skippable (entering bastion remnant and entering nether fortress are interchangeable)
 - **Milestone list**: one line per achieved checkpoint, showing its label, the achieving player, and the total play time at that moment
 
-| Milestone | Trigger | Display line | Status change |
-|-----------|---------|--------------|---------------|
-| Start game | Game starts (`/rr start`) | ✓ | Game started |
-| Enter nether | Active player reaches the Nether | ✓ | Entered nether |
-| Reach bastion remnant | Active player gets the "光辉岁月" (`nether/find_bastion`) advancement | ✓ | Entered bastion remnant |
-| Reach nether fortress | Active player gets the "阴森的要塞" (`nether/find_fortress`) advancement | ✓ | Entered nether fortress |
-| Heading to stronghold | Active player successfully throws an ender eye | ✗ | Heading to stronghold |
-| Reach stronghold | Active player gets the "隔墙有眼" (`story/follow_ender_eye`) advancement | ✓ | Entered stronghold |
-| Enter end | Active player reaches the End | ✓ | Entered end |
-| Defeat ender dragon | Ender dragon killed (any source) | ✓ | — |
-| Clear game | Game cleared (`winGame`) | ✓ | — |
+| Milestone             | Trigger                                                                  | Display line | Status change           |
+|-----------------------|--------------------------------------------------------------------------|--------------|-------------------------|
+| Start game            | Game starts (`/rr start`)                                                | ✓           | Game started            |
+| Enter nether          | Active player reaches the Nether                                         | ✓           | Entered nether          |
+| Reach bastion remnant | Active player gets the "光辉岁月" (`nether/find_bastion`) advancement    | ✓           | Entered bastion remnant |
+| Reach nether fortress | Active player gets the "阴森的要塞" (`nether/find_fortress`) advancement | ✓           | Entered nether fortress |
+| Heading to stronghold | Active player successfully throws an ender eye                           | ✗           | Heading to stronghold   |
+| Reach stronghold      | Active player gets the "隔墙有眼" (`story/follow_ender_eye`) advancement | ✓           | Entered stronghold      |
+| Enter end             | Active player reaches the End                                            | ✓           | Entered end             |
+| Defeat ender dragon   | Ender dragon killed (any source)                                         | ✓           | —                       |
+| Clear game            | Game cleared (`winGame`)                                                 | ✓           | —                       |
 
 > Note: Defeating the ender dragon does not change the "Current progress" status (status stops at "Entered end"); it only adds a display line. Clearing the game updates the status to "Game cleared".
 

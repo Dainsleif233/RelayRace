@@ -128,6 +128,48 @@ public class GameManager {
         }
     }
 
+    /**
+     * Remaining play time of the current turn in whole seconds.
+     * Returns 0 when no game is running.
+     */
+    public int getRemainingSeconds() {
+        if (!isRunning()) {
+            return 0;
+        }
+        return Math.max(0, remainingTicks) / 20;
+    }
+
+    /**
+     * Adds play time to the current turn. See {@link top.syshub.relayrace.common.api.RelayRaceApi}.
+     */
+    public boolean addRemainingSeconds(int seconds) {
+        if (!isRunning() || seconds <= 0) {
+            return false;
+        }
+        long next = (long) remainingTicks + (long) seconds * 20L;
+        remainingTicks = (int) Math.min(Integer.MAX_VALUE, next);
+        updateBossBar();
+        return true;
+    }
+
+    /**
+     * Removes play time from the current turn. See {@link top.syshub.relayrace.common.api.RelayRaceApi}.
+     */
+    public boolean subtractRemainingSeconds(int seconds) {
+        if (!isRunning() || seconds <= 0) {
+            return false;
+        }
+        // long math: int `seconds * 20` can overflow (e.g. Integer.MAX_VALUE → -20)
+        // and turn a subtraction into an accidental time extension.
+        long next = (long) remainingTicks - (long) seconds * 20L;
+        remainingTicks = (int) Math.max(0L, next);
+        updateBossBar();
+        if (remainingTicks <= 0 && !countdownActive && pendingRotation == null) {
+            switchToNextPlayer();
+        }
+        return true;
+    }
+
     public void setExternalLobby(boolean value) {
         config.setExternalLobby(value);
         if (lobbyMessenger != null) {
