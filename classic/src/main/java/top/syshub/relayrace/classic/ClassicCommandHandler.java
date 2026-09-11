@@ -48,6 +48,13 @@ public final class ClassicCommandHandler implements CommandRegistrar {
             .withAliases("rr")
             .withPermission(PERMISSION)
             .withSubcommand(config())
+            .withSubcommand(command("time")
+                .withSubcommand(command("add")
+                    .withArguments(new IntegerArgument("seconds", 1))
+                    .executes((CommandExecutor) (sender, args) -> timeAdd(sender, (Integer) args[0])))
+                .withSubcommand(command("subtract")
+                    .withArguments(new IntegerArgument("seconds", 1))
+                    .executes((CommandExecutor) (sender, args) -> timeSubtract(sender, (Integer) args[0]))))
             .withSubcommand(command("sort").executes((sender, args) -> {
                 gm.sortWaiting();
                 send(sender, "command.sort.done");
@@ -107,6 +114,32 @@ public final class ClassicCommandHandler implements CommandRegistrar {
             .withSubcommand(command("locales")
                 .withArguments(new StringArgument("locale"))
                 .executes((CommandExecutor) (sender, args) -> localesSet(sender, (String) args[0])));
+    }
+
+    private void timeAdd(CommandSender sender, int seconds) {
+        if (!gm.isRunning()) {
+            send(sender, "command.time.none");
+            return;
+        }
+        if (gm.addRemainingSeconds(seconds)) {
+            send(sender, "command.time.added",
+                String.valueOf(seconds), String.valueOf(gm.getRemainingSeconds()));
+        } else {
+            send(sender, "command.time.none");
+        }
+    }
+
+    private void timeSubtract(CommandSender sender, int seconds) {
+        if (!gm.isRunning()) {
+            send(sender, "command.time.none");
+            return;
+        }
+        if (gm.subtractRemainingSeconds(seconds)) {
+            send(sender, "command.time.subtracted",
+                String.valueOf(seconds), String.valueOf(gm.getRemainingSeconds()));
+        } else {
+            send(sender, "command.time.none");
+        }
     }
 
     private void playtimeGet(CommandSender sender) {

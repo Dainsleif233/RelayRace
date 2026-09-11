@@ -116,6 +116,19 @@ public final class LatestCommandHandler implements CommandRegistrar {
                             configLocalesSet(plugin, gameManager, ctx);
                             return Command.SINGLE_SUCCESS;
                         }))))
+            .then(Commands.literal("time")
+                .then(Commands.literal("add")
+                    .then(Commands.argument("seconds", IntegerArgumentType.integer(1))
+                        .executes(ctx -> {
+                            timeAdd(gameManager, ctx);
+                            return Command.SINGLE_SUCCESS;
+                        })))
+                .then(Commands.literal("subtract")
+                    .then(Commands.argument("seconds", IntegerArgumentType.integer(1))
+                        .executes(ctx -> {
+                            timeSubtract(gameManager, ctx);
+                            return Command.SINGLE_SUCCESS;
+                        }))))
             .then(Commands.literal("sort")
                 .executes(ctx -> {
                     sort(gameManager, ctx);
@@ -160,6 +173,34 @@ public final class LatestCommandHandler implements CommandRegistrar {
         int seconds = ctx.getArgument("time", Integer.class);
         gm.setPlaytimeSeconds(seconds);
         send(ctx, gm.getTranslator().format("command.config.playtime.set", String.valueOf(seconds)));
+    }
+
+    private static void timeAdd(GameManager gm, CommandContext<CommandSourceStack> ctx) {
+        if (!gm.isRunning()) {
+            send(ctx, gm.getTranslator().format("command.time.none"));
+            return;
+        }
+        int seconds = ctx.getArgument("seconds", Integer.class);
+        if (gm.addRemainingSeconds(seconds)) {
+            send(ctx, gm.getTranslator().format("command.time.added",
+                String.valueOf(seconds), String.valueOf(gm.getRemainingSeconds())));
+        } else {
+            send(ctx, gm.getTranslator().format("command.time.none"));
+        }
+    }
+
+    private static void timeSubtract(GameManager gm, CommandContext<CommandSourceStack> ctx) {
+        if (!gm.isRunning()) {
+            send(ctx, gm.getTranslator().format("command.time.none"));
+            return;
+        }
+        int seconds = ctx.getArgument("seconds", Integer.class);
+        if (gm.subtractRemainingSeconds(seconds)) {
+            send(ctx, gm.getTranslator().format("command.time.subtracted",
+                String.valueOf(seconds), String.valueOf(gm.getRemainingSeconds())));
+        } else {
+            send(ctx, gm.getTranslator().format("command.time.none"));
+        }
     }
 
     private static void sort(GameManager gm, CommandContext<CommandSourceStack> ctx) {

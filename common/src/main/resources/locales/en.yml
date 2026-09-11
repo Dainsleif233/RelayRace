@@ -27,6 +27,9 @@ command.next.success: "<green>Switched to next player."
 command.next.pending: "<red>A player bring-back is in progress. Please wait."
 command.stop.none: "<red>No game is running."
 command.stop.success: "<green>Game stopped."
+command.time.none: "<red>No game is running."
+command.time.added: "<green>Added {seconds} second(s). Remaining: {remaining}s."
+command.time.subtracted: "<green>Removed {seconds} second(s). Remaining: {remaining}s."
 
 # --- Game Messages ---
 

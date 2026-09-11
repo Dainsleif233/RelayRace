@@ -16,6 +16,8 @@ All commands require the `relayrace.command` permission (default OP). Root comma
 | `/rr start`                              | Start the game (15-second frozen countdown by default)       |
 | `/rr next`                               | Force switch to the next player (10-second frozen countdown) |
 | `/rr stop`                               | Force stop the game                                          |
+| `/rr time add <seconds>`                 | Add remaining time to the current turn                       |
+| `/rr time subtract <seconds>`            | Remove remaining time from the current turn (0 ends the turn) |
 | `/rr config playtime [seconds]`          | View or set turn duration (default 300 seconds)              |
 | `/rr config loop [true/false]`           | View or set loop mode (default on)                           |
 | `/rr config freeze [true/false]`         | View or set freeze countdown (default on)                    |

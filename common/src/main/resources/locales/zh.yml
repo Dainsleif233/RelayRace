@@ -27,6 +27,9 @@ command.next.success: "<green>已切换到下一位玩家。"
 command.next.pending: "<red>正在召回外部大厅的玩家，请等待。"
 command.stop.none: "<red>没有游戏在运行。"
 command.stop.success: "<green>游戏已停止。"
+command.time.none: "<red>没有游戏在运行。"
+command.time.added: "<green>已增加 {seconds} 秒，当前剩余 {remaining} 秒。"
+command.time.subtracted: "<green>已减少 {seconds} 秒，当前剩余 {remaining} 秒。"
 
 # --- 游戏消息 ---
 

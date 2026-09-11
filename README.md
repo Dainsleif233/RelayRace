@@ -16,6 +16,8 @@
 | `/rr start`                              | 开始游戏（默认冻结 15 秒倒计时）             |
 | `/rr next`                               | 强制切换到下一名玩家（默认冻结 10 秒倒计时） |
 | `/rr stop`                               | 强制结束游戏                                 |
+| `/rr time add <秒数>`                    | 给当前回合增加剩余游玩时间                   |
+| `/rr time subtract <秒数>`               | 减少当前回合剩余游玩时间（减到 0 立即换人）  |
 | `/rr config playtime [秒数]`             | 查看或设置每轮时长（默认 300 秒）            |
 | `/rr config loop [true/false]`           | 查看或设置循环模式（默认开启）               |
 | `/rr config freeze [true/false]`         | 查看或设置冻结冷却（默认开启）               |
