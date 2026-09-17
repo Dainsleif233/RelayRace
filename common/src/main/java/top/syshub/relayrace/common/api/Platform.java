@@ -41,7 +41,7 @@ public interface Platform {
 
     /**
      * Capture version-specific player state that is not available on every
-     * server API (for example arrows-in-body and freeze ticks on Paper 26.2).
+     * server API (for example arrows-in-body and freeze ticks on Paper 26.3).
      */
     default void capturePlayerExtras(Player player, PlayerExtras extras) {
     }
