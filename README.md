@@ -93,6 +93,10 @@ if (api != null && api.isGameRunning()) {
 
 > 注：击败末影龙不更新「当前进度」状态（进度状态止于「已进入末地」），仅新增显示行；通关游戏会将状态更新为「已通关游戏」。
 
+## 回放录制（FlashbackServer）
+
+在服务器上安装 [FlashbackServer](https://modrinth.com/plugin/flashback-server) 后，RelayRace 会自动录制每一回合的玩家视角。
+
 ## 许可证
 
 本项目使用 [GPL v3](https://www.gnu.org/licenses/gpl-3.0.html) 协议开源。

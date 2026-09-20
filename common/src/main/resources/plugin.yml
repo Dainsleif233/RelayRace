@@ -5,6 +5,7 @@ version: '${version}'
 main: top.syshub.relayrace.common.RelayRacePlugin
 api-version: '1.16'
 load: POSTWORLD
+softdepend: [FlashbackServer]
 
 permissions:
   relayrace.command:

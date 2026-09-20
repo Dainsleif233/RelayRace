@@ -93,6 +93,10 @@ Board contents:
 
 > Note: Defeating the ender dragon does not change the "Current progress" status (status stops at "Entered end"); it only adds a display line. Clearing the game updates the status to "Game cleared".
 
+## Replay recording (FlashbackServer)
+
+Install [FlashbackServer](https://modrinth.com/plugin/flashback-server) on the server, and RelayRace will automatically record each player's turn.
+
 ## License
 
 This project is open-source under the [GPL v3](https://www.gnu.org/licenses/gpl-3.0.html) license.

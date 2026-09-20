@@ -20,10 +20,15 @@ import org.bukkit.scoreboard.Team;
 import top.syshub.relayrace.common.api.BossBarHandle;
 import top.syshub.relayrace.common.api.CancellableTask;
 import top.syshub.relayrace.common.api.Platform;
+import top.syshub.relayrace.common.replay.FlashbackReplayRecorder;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -68,6 +73,10 @@ public class GameManager {
     private final Map<UUID, UUID> pendingPetTransfers = new HashMap<>();
 
     private final MilestoneManager milestoneManager;
+
+    private final FlashbackReplayRecorder replayRecorder = new FlashbackReplayRecorder();
+    private Path replaySessionDir;
+    private int currentTurn;
 
     private static class PendingRotation {
         final UUID playerUuid;
@@ -424,6 +433,36 @@ public class GameManager {
 
     // --- Game lifecycle ---
 
+    private Path createReplaySessionDir() {
+        String name = new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss").format(new Date(gameStartTime));
+        try {
+            Path dir = plugin.getDataFolder().toPath().resolve("replays").resolve(name);
+            Files.createDirectories(dir);
+            return dir;
+        } catch (Exception e) {
+            plugin.getLogger().warning("Failed to create replay session dir '" + name + "': " + e.getMessage());
+            return null;
+        }
+    }
+
+    private void beginReplayRecording(Player player) {
+        if (replaySessionDir == null || player == null) {
+            return;
+        }
+        if (!replayRecorder.start(player)) {
+            plugin.debug("[replay] start skipped/failed for " + player.getName()
+                + " turn=" + currentTurn + " available=" + replayRecorder.isAvailable());
+        }
+    }
+
+    private void finishReplayRecording(Player player) {
+        if (replaySessionDir == null || player == null) {
+            return;
+        }
+        Path target = replaySessionDir.resolve(currentTurn + "-" + player.getName() + ".zip");
+        replayRecorder.stop(player, target);
+    }
+
     public boolean startGame() {
         if (isRunning()) {
             return false;
@@ -435,6 +474,8 @@ public class GameManager {
         setupTeams();
         gameState = GameState.RUNNING;
         gameStartTime = System.currentTimeMillis();
+        replaySessionDir = createReplaySessionDir();
+        currentTurn = 1;
 
         activePlayer = waitingPlayers.remove(0);
         assignTeam(activePlayer, playingTeam);
@@ -485,6 +526,7 @@ public class GameManager {
         } else {
             startTimer();
         }
+        beginReplayRecording(activePlayer);
         return true;
     }
 
@@ -500,6 +542,7 @@ public class GameManager {
         cancelCountdown();
 
         Player oldActive = activePlayer;
+        finishReplayRecording(oldActive);
 
         collectCraftingDrops(oldActive);
 
@@ -644,6 +687,8 @@ public class GameManager {
                 plugin.getTranslator().format("game.go.title"), "", 0, 10, 6));
         }
         startTimer();
+        currentTurn++;
+        beginReplayRecording(next);
     }
 
     private void skipOfflinePlayers() {
@@ -683,6 +728,7 @@ public class GameManager {
         if (gameState != GameState.RUNNING) return;
         gameState = GameState.IDLE;
 
+        finishReplayRecording(activePlayer);
         milestoneManager.onGameEnd();
 
         cancelCountdown();
@@ -976,6 +1022,7 @@ public class GameManager {
         }
 
         if (isActivePlayer(player)) {
+            finishReplayRecording(player);
             PlayerData snapshot = PlayerData.capture(player, platform);
 
             Entity vehicle = player.getVehicle();
@@ -1008,6 +1055,10 @@ public class GameManager {
     // --- Cleanup ---
 
     public void disable() {
+        if (gameState == GameState.RUNNING) {
+            finishReplayRecording(activePlayer);
+        }
+        replaySessionDir = null;
         if (pendingRotation != null) {
             pendingRotation.cancelled = true;
             pendingRotation = null;
